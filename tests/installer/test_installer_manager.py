@@ -86,6 +86,7 @@ def test_install_full_with_fakes(tmp_path: Path) -> None:
     assert fs.mode_of(password_file) == 0o600
     assert fs.exists("/etc/systemd/system/eventhub-helper.service")
     assert fs.exists("/etc/systemd/system/eventhub-dashboard.service")
+    assert fs.is_symlink("/usr/local/bin/eventhub")
     # package manager was invoked
     assert runtime.runner.called("apt-get update")
     assert runtime.runner.called("apt-get install")

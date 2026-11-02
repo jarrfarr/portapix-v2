@@ -98,6 +98,7 @@ fi
 "${VENV}/bin/pip" install --upgrade pip >/dev/null
 log "installing EventHub (this can take a few minutes on a Pi)"
 "${VENV}/bin/pip" install --upgrade "${SRC}[copyparty]"
+ln -sfn "${VENV}/bin/eventhub" /usr/local/bin/eventhub
 ok "EventHub installed"
 
 # ---------------------------------------------------------------------------
@@ -113,12 +114,17 @@ if [ ! -t 0 ]; then
     fi
 fi
 
+EVENTHUB_BIN="${VENV}/bin/eventhub"
+if [ ! -x "${EVENTHUB_BIN}" ]; then
+    fail "pip did not create ${EVENTHUB_BIN}"
+fi
+
 if [ "${NONINTERACTIVE}" -eq 1 ]; then
     warn "no terminal available; running a non-interactive install"
-    exec "${VENV}/bin/eventhub" install --yes "$@"
+    exec "${EVENTHUB_BIN}" install --yes "$@"
 fi
 
 if [ $# -gt 0 ]; then
-    exec "${VENV}/bin/eventhub" "$@"
+    exec "${EVENTHUB_BIN}" "$@"
 fi
-exec "${VENV}/bin/eventhub"
+exec "${EVENTHUB_BIN}"

@@ -317,6 +317,14 @@ class InstallPythonEnvironmentStep(InstallStep):
     title = "Install EventHub into its virtualenv"
     description = "Create /opt/eventhub/venv and install the pinned package."
 
+    def _link_console(self, ctx: InstallContext) -> None:
+        """Expose the venv entry point on PATH (sudo eventhub must work)."""
+
+        target = ctx.config.install.venv_path / "bin" / "eventhub"
+        link = Path("/usr/local/bin/eventhub")
+        ctx.runtime.fs.remove(link, missing_ok=True)
+        ctx.runtime.fs.symlink(target, link)
+
     def _project_root(self) -> Path | None:
         import eventhub
 
@@ -331,6 +339,8 @@ class InstallPythonEnvironmentStep(InstallStep):
         entry = install.venv_path / "bin" / "eventhub"
         copyparty = install.venv_path / "bin" / "copyparty"
         if ctx.runtime.fs.exists(entry) and ctx.runtime.fs.exists(copyparty):
+            if not ctx.dry_run:
+                self._link_console(ctx)
             return StepResult(self.id, "ok", "virtualenv already installed", str(entry))
         if ctx.dry_run:
             return StepResult(self.id, "ok", "would create the virtualenv")
@@ -361,6 +371,7 @@ class InstallPythonEnvironmentStep(InstallStep):
             return StepResult(
                 self.id, "fail", "pip install failed", result.stderr[-2000:]
             )
+        self._link_console(ctx)
         return StepResult(self.id, "ok", f"installed from {source}")
 
 
