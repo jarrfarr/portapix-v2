@@ -694,6 +694,324 @@ def hotspot_kick(ctx: typer.Context, mac: str = typer.Argument(...)) -> None:
 
 
 # ---------------------------------------------------------------------------
+# storage / events helpers
+# ---------------------------------------------------------------------------
+
+
+storage_app = typer.Typer(help="Inspect drives, mount, eject and format storage.")
+app.add_typer(storage_app, name="storage")
+
+events_app = typer.Typer(help="Create, activate, archive and inspect events.")
+app.add_typer(events_app, name="events")
+
+
+@storage_app.command("status")
+def storage_status(ctx: typer.Context, json_output: bool = typer.Option(False, "--json")) -> None:
+    """Show the selected drive, mount state and free space."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.storage.service import StorageService
+
+        service = StorageService(state.runtime())
+        payload = {
+            "usage": service.usage(),
+            "drives": [drive.as_dict() for drive in service.detected_drives()],
+        }
+        if json_output:
+            console.print_json(json.dumps(payload, indent=2, default=str))
+            return
+        usage = payload["usage"]
+        table = Table(title="Storage")
+        table.add_column("Item")
+        table.add_column("Value")
+        table.add_row("mount point", str(usage.get("mount_point")))
+        table.add_row("mounted", "yes" if usage.get("mounted") else "no")
+        if usage.get("total_bytes"):
+            table.add_row(
+                "used",
+                f"{usage['used_bytes'] / 1024**3:.1f} / "
+                f"{usage['total_bytes'] / 1024**3:.1f} GiB "
+                f"({usage['used_percent']}%)",
+            )
+        table.add_row("required", "yes" if usage.get("required") else "no")
+        console.print(table)
+        drives = Table(title="Detected drives")
+        drives.add_column("Device")
+        drives.add_column("UUID")
+        drives.add_column("Label")
+        drives.add_column("FS")
+        drives.add_column("Size", justify="right")
+        drives.add_column("Mounted")
+        for drive in payload["drives"]:
+            drives.add_row(
+                drive["device"],
+                drive["uuid"],
+                drive["label"],
+                drive["fstype"],
+                f"{drive['size_bytes'] / 1024**3:.1f} GiB",
+                drive["mount_point"] or "-",
+            )
+        console.print(drives)
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@storage_app.command("mount")
+def storage_mount(ctx: typer.Context) -> None:
+    """Mount the configured storage drive."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.storage.service import StorageService
+
+        runtime = state.runtime()
+        if not runtime.privileged:
+            _handle_error(EventHubError("mounting requires root"))
+        result = StorageService(runtime).mount()
+        if not result.ok:
+            _handle_error(EventHubError(result.message))
+        console.print(f"[green]{result.message}[/green]")
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@storage_app.command("unmount")
+def storage_unmount(
+    ctx: typer.Context, force: bool = typer.Option(False, "--force")
+) -> None:
+    """Safely eject the storage drive."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.storage.service import StorageService
+
+        runtime = state.runtime()
+        if not runtime.privileged:
+            _handle_error(EventHubError("unmounting requires root"))
+        result = StorageService(runtime).unmount(force=force)
+        if not result.ok:
+            _handle_error(EventHubError(result.message))
+        console.print(f"[green]{result.message}[/green]")
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@storage_app.command("format")
+def storage_format(
+    ctx: typer.Context,
+    fstype: str = typer.Option("ext4", "--fstype", help="ext4 or exfat"),
+    confirm: str = typer.Option("", "--confirm", help="Type FORMAT to confirm."),
+    label: str = typer.Option("EVENTHUB", "--label"),
+) -> None:
+    """Format the selected removable drive. Destructive; requires FORMAT."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.storage.service import StorageService
+
+        runtime = state.runtime()
+        if not runtime.privileged:
+            _handle_error(EventHubError("formatting requires root"))
+        result = StorageService(runtime).format(
+            fstype=fstype, confirmation=confirm, label=label
+        )
+        if not result.ok:
+            _handle_error(EventHubError(result.message))
+        console.print(f"[green]{result.message}[/green]")
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+def _persist_events_config(state: CliState, runtime: Runtime) -> None:
+    from eventhub.core.config import config_yaml
+
+    runtime.fs.atomic_write(state.config_path, config_yaml(runtime.config), mode=0o600)
+
+
+@events_app.command("list")
+def events_list(
+    ctx: typer.Context,
+    all_events: bool = typer.Option(False, "--all", help="Include archived events."),
+    json_output: bool = typer.Option(False, "--json"),
+) -> None:
+    """List events and the active event."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.events.service import EventsService
+
+        service = EventsService(state.runtime())
+        events = service.list_events(include_archived=all_events)
+        if json_output:
+            console.print_json(
+                json.dumps(
+                    {
+                        "active": state.runtime.config.events.active_event,
+                        "events": [event.as_dict() for event in events],
+                    },
+                    indent=2,
+                )
+            )
+            return
+        table = Table(title="Events")
+        table.add_column("Slug")
+        table.add_column("Name")
+        table.add_column("Date")
+        table.add_column("Status")
+        table.add_column("Size", justify="right")
+        for event in events:
+            marker = "*" if state.runtime.config.events.active_event == event.slug else ""
+            table.add_row(
+                event.slug + marker,
+                event.name,
+                event.event_date,
+                event.status,
+                f"{service.size_bytes(event.slug) / 1024**2:.1f} MiB",
+            )
+        console.print(table)
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@events_app.command("create")
+def events_create(
+    ctx: typer.Context,
+    name: str = typer.Argument(...),
+    event_date: str = typer.Option("", "--date", help="ISO date (default: today)."),
+    slug: str = typer.Option("", "--slug"),
+    notes: str = typer.Option("", "--notes"),
+    activate: bool = typer.Option(False, "--activate", help="Activate the new event."),
+    no_apply: bool = typer.Option(False, "--no-apply"),
+) -> None:
+    """Create an event with its folder layout."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.events.service import EventsService
+
+        runtime = state.runtime()
+        if not runtime.privileged and not state.dry_run:
+            _handle_error(EventHubError("creating events requires root"))
+        service = EventsService(runtime)
+        event = service.create_event(
+            name,
+            event_date=event_date or None,
+            slug=slug or None,
+            notes=notes,
+            activate=True if activate else None,
+        )
+        _persist_events_config(state, runtime)
+        if not no_apply:
+            applied = ServiceRegistry(runtime).apply()
+            if not applied.ok:
+                _handle_error(EventHubError(applied.message))
+        console.print(
+            f"[green]created {event.slug} at {event.path}[/green]"
+            + (" (active)" if runtime.config.events.active_event == event.slug else "")
+        )
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@events_app.command("activate")
+def events_activate(ctx: typer.Context, slug: str = typer.Argument(...)) -> None:
+    """Make an event the AirDrop/default upload target."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.events.service import EventsService
+
+        runtime = state.runtime()
+        if not runtime.privileged:
+            _handle_error(EventHubError("activating events requires root"))
+        EventsService(runtime).activate(slug)
+        _persist_events_config(state, runtime)
+        applied = ServiceRegistry(runtime).apply()
+        if not applied.ok:
+            _handle_error(EventHubError(applied.message))
+        console.print(f"[green]{slug} is now active[/green]")
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@events_app.command("archive")
+def events_archive(ctx: typer.Context, slug: str = typer.Argument(...)) -> None:
+    """Archive an event (read-only)."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.events.service import EventsService
+
+        runtime = state.runtime()
+        if not runtime.privileged:
+            _handle_error(EventHubError("archiving events requires root"))
+        EventsService(runtime).archive(slug)
+        _persist_events_config(state, runtime)
+        applied = ServiceRegistry(runtime).apply()
+        if not applied.ok:
+            _handle_error(EventHubError(applied.message))
+        console.print(f"[green]{slug} archived[/green]")
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@events_app.command("restore")
+def events_restore(ctx: typer.Context, slug: str = typer.Argument(...)) -> None:
+    """Re-open an archived event."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.events.service import EventsService
+
+        runtime = state.runtime()
+        if not runtime.privileged:
+            _handle_error(EventHubError("restoring events requires root"))
+        EventsService(runtime).restore(slug)
+        console.print(f"[green]{slug} restored[/green]")
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@events_app.command("path")
+def events_path(ctx: typer.Context, slug: str = typer.Argument("")) -> None:
+    """Print the active (or named) event's folder."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.events.service import EventsService
+
+        service = EventsService(state.runtime())
+        event = service.get_event(slug) if slug else service.active_event()
+        if event is None:
+            _handle_error(EventHubError("no active event"))
+            return
+        console.print(str(event.path))
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+# ---------------------------------------------------------------------------
 # placeholders wired up in later phases
 # ---------------------------------------------------------------------------
 

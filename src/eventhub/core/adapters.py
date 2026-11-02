@@ -136,6 +136,7 @@ class FileSystem(Protocol):
     def symlink(self, target: Path | str, link: Path | str) -> None: ...
     def readlink(self, path: Path | str) -> Path: ...
     def statvfs(self, path: Path | str) -> StatVfs: ...
+    def size_bytes(self, path: Path | str) -> int: ...
     def rename(self, source: Path | str, target: Path | str) -> None: ...
 
 
@@ -229,6 +230,19 @@ class RealFileSystem:
             available_bytes=available,
             used_bytes=used,
         )
+
+    def size_bytes(self, path: Path | str) -> int:
+        target = Path(path)
+        if target.is_file():
+            return target.stat().st_size
+        total = 0
+        for root, _dirs, files in os.walk(target):
+            for name in files:
+                try:
+                    total += (Path(root) / name).stat().st_size
+                except OSError:
+                    continue
+        return total
 
     def rename(self, source: Path | str, target: Path | str) -> None:
         Path(target).parent.mkdir(parents=True, exist_ok=True)

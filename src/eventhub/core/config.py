@@ -677,7 +677,11 @@ class AppConfig(StrictModel):
 
     @property
     def events_root(self) -> Path:
-        return self.events.root if self.events.root is not None else self.data_root / "events"
+        if self.events.root is not None:
+            return self.events.root
+        if self.storage.enabled and self.storage.drive.uuid:
+            return self.storage.drive.mount_point / "events"
+        return self.data_root / "events"
 
     @property
     def ingest_root(self) -> Path:

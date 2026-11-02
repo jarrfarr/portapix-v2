@@ -95,4 +95,28 @@ roles change.  A one-shot unit plus timer would add ordering complexity and a
 second unit to install; a single monitor makes failover observable and keeps
 the dashboard's uplink state fresh.
 
+## 2026-11-02 — Event data follows the selected storage drive
+
+`events.root` is explicit when set.  Otherwise, if `storage.drive.uuid` is
+configured, the event root is `<mount_point>/events`; with no drive it falls
+back to `<data_root>/events`.  This means choosing a drive in the wizard moves
+the event tree without adding another path setting.
+
+## 2026-11-02 — Refuse event creation on an unmounted configured drive
+
+Writing into `<mount_point>` while the real filesystem is unmounted creates
+files on the root filesystem that become invisible (and confusing) once the
+drive is attached.  `events.create` therefore raises a clear conflict when a
+configured UUID is not present in `/proc/self/mounts`.  The storage module is
+still allowed to be optional: if no drive is configured at all, the fallback
+path is used.
+
+## 2026-11-02 — Mounts are systemd units, not /etc/fstab edits
+
+`storage.render()` emits an escaped `.mount` unit with `ConditionPathExists`
+and `TimeoutSec`.  This gives auto-mount on boot, safe removal without boot
+failure, and lets the apply engine snapshot/roll back the file.  `/etc/fstab`
+is user-owned and too dangerous to rewrite wholesale.
+
+
 

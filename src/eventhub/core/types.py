@@ -222,3 +222,18 @@ class DriveInfo:
     removable: bool = False
     model: str = ""
     detail: str = ""
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "device": str(self.device),
+            "uuid": self.uuid,
+            "label": self.label,
+            "fstype": self.fstype,
+            "size_bytes": self.size_bytes,
+            "free_bytes": self.free_bytes,
+            "mounted": self.mounted,
+            "mount_point": str(self.mount_point) if self.mount_point else None,
+            "removable": self.removable,
+            "model": self.model,
+            "detail": self.detail,
+        }

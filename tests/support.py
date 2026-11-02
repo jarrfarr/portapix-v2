@@ -217,6 +217,16 @@ class FakeFileSystem:
             used_bytes=used,
         )
 
+    def size_bytes(self, path: Path | str) -> int:
+        value = self._p(path)
+        if value in self.files:
+            return len(self.files[value].encode("utf-8"))
+        return sum(
+            len(content.encode("utf-8"))
+            for item, content in self.files.items()
+            if value in item.parents
+        )
+
     def rename(self, source: Path | str, target: Path | str) -> None:
         src, dst = self._p(source), self._p(target)
         if src in self.files:
@@ -345,7 +355,7 @@ def make_config(
             drive={"mount_point": tmp_path / "media" / "data"},
         ),
         "users": UsersConfig(enabled=enabled),
-        "events": EventsConfig(enabled=enabled, root=data_root / "events"),
+        "events": EventsConfig(enabled=enabled),
         "fileserver_copyparty": CopypartyConfig(
             enabled=enabled,
             config_path=tmp_path / "etc" / "copyparty.conf",

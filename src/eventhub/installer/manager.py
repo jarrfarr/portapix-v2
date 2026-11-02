@@ -121,6 +121,21 @@ class Installer:
             ctx.config = merge_config(
                 ctx.config, {"hotspot": {"interface": ctx.config.roles.ap}}
             )
+        storage = ctx.config.storage
+        if (
+            storage.enabled
+            and not (storage.drive.uuid or storage.drive.device or storage.drive.label)
+            and hardware.drives
+        ):
+            drive = next((d for d in hardware.drives if d.removable), hardware.drives[0])
+            if drive.uuid:
+                ctx.config = merge_config(
+                    ctx.config, {"storage": {"drive": {"uuid": drive.uuid}}}
+                )
+                ctx.log(
+                    "ok",
+                    f"selected storage drive {drive.label or drive.uuid}",
+                )
 
     # -- install -------------------------------------------------------
     def install(
