@@ -291,6 +291,27 @@ class Database:
             "SELECT * FROM audit_log ORDER BY id DESC LIMIT ?", (max(0, limit),)
         )
 
+    # -- backup / restore ---------------------------------------------
+    def backup(self, target: Path | str) -> None:
+        """Write a consistent copy of the database using SQLite's backup API."""
+
+        destination = sqlite3.connect(str(target), isolation_level=None)
+        try:
+            with self._lock:
+                self._conn.backup(destination)
+        finally:
+            destination.close()
+
+    def restore_from(self, source: Path | str) -> None:
+        """Replace the live database contents from a backup file."""
+
+        source_db = sqlite3.connect(str(source), isolation_level=None)
+        try:
+            with self._lock:
+                source_db.backup(self._conn)
+        finally:
+            source_db.close()
+
     # -- service state -------------------------------------------------
     def record_service_state(
         self, name: str, *, installed: bool, enabled: bool, meta: str = "{}"

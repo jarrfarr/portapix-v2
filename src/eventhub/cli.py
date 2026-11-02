@@ -76,6 +76,32 @@ class CliState:
         self._runtime = runtime
         return runtime
 
+    def runtime_for_install(self) -> Runtime:
+        """Runtime for install: use the real DB, or an in-memory DB if non-root."""
+
+        try:
+            config = load_config(self.config_path)
+        except ConfigError:
+            from eventhub.core.config import default_config
+
+            config = default_config()
+        from eventhub.core.adapters import is_root
+        from eventhub.core.db import Database, open_database
+
+        if is_root():
+            database = open_database(config.db_path)
+        else:
+            database = Database(":memory:")
+            database.migrate()
+        runtime = build_runtime(
+            config=config,
+            config_path=self.config_path,
+            db=database,
+            dry_run=self.dry_run,
+        )
+        self._runtime = runtime
+        return runtime
+
     def close(self) -> None:
         if self._runtime is not None:
             self._runtime.close()
@@ -132,6 +158,12 @@ def _handle_error(exc: Exception) -> None:
 
 
 def _launch_tui(state: CliState) -> int:
+    if not sys.stdin.isatty():
+        console.print(
+            "[yellow]No terminal attached; the TUI needs an interactive stdin.[/yellow]\n"
+            "Run [bold]eventhub --help[/bold] for the command-line interface."
+        )
+        return 2
     try:
         from eventhub.tui.app import run_tui
     except ImportError:
@@ -415,7 +447,16 @@ def config_get(ctx: typer.Context, dotted: str) -> None:
 def install(
     ctx: typer.Context,
     yes: bool = typer.Option(False, "--yes", "-y", help="Unattended install."),
-    answers: Path | None = typer.Option(None, "--config", help="Unattended answers file."),
+    answers: Path | None = typer.Option(
+        None, "--answers", "--config", help="Unattended answers file (YAML)."
+    ),
+    skip_packages: bool = typer.Option(
+        False, "--skip-packages", help="Skip system package installation (development)."
+    ),
+    no_start: bool = typer.Option(False, "--no-start", help="Do not start services."),
+    selftest_after: bool = typer.Option(
+        False, "--selftest", help="Run the self-test after installing."
+    ),
 ) -> None:
     """Install or repair EventHub (idempotent)."""
 
@@ -423,15 +464,27 @@ def install(
     try:
         from eventhub.installer.manager import Installer
 
-        runtime = state.runtime(require_config=False)
+        runtime = state.runtime_for_install()
         if not runtime.privileged and not state.dry_run:
             _handle_error(EventHubError("install requires root"))
         result = Installer(runtime).install(
-            unattended=yes, answers_path=answers, dry_run=state.dry_run
+            unattended=yes,
+            answers_path=answers,
+            dry_run=state.dry_run,
+            skip_packages=skip_packages,
+            start_services=not no_start,
+            run_selftest=selftest_after,
         )
         if not result.ok:
             _handle_error(EventHubError(result.message))
         console.print(f"[green]{result.message}[/green]")
+        if result.admin_password:
+            console.print(
+                f"[yellow]Initial admin password: {result.admin_password}[/yellow] "
+                "(also written to the first-boot password file)"
+            )
+        for warning in result.warnings:
+            console.print(f"[yellow]warning:[/yellow] {warning}")
     except EventHubError as exc:
         _handle_error(exc)
     finally:

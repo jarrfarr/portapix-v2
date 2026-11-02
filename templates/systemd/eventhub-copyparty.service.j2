@@ -1,0 +1,23 @@
+[Unit]
+Description=EventHub copyparty file server
+After=network.target eventhub-helper.service
+ConditionPathExists={{ config_path }}
+ConditionPathExists={{ copyparty.config_path }}
+
+[Service]
+Type=simple
+ExecStart={{ venv }}/bin/copyparty --config {{ copyparty.config_path }}
+Restart=on-failure
+RestartSec=3
+User={{ service_user }}
+Group={{ service_group }}
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=read-only
+ProtectSystem=strict
+ReadWritePaths={{ data_root }} {{ state_dir }} {{ log_dir }} {{ copyparty.home_dir }}
+UMask=0027
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

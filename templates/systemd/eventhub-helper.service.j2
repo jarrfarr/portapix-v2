@@ -1,0 +1,27 @@
+[Unit]
+Description=EventHub privileged helper
+Documentation=https://eventhub.local/
+After=network.target
+Before=eventhub-dashboard.service
+ConditionPathExists={{ config_path }}
+
+[Service]
+Type=simple
+ExecStart={{ venv }}/bin/eventhub --config {{ config_path }} helper serve
+Restart=on-failure
+RestartSec=2
+User=root
+Group=root
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=read-only
+ProtectSystem=strict
+ReadWritePaths=/etc /var/lib/eventhub /var/log/eventhub /run/eventhub /media/eventhub /srv/eventhub /opt/eventhub
+RuntimeDirectory=eventhub
+RuntimeDirectoryMode=0750
+UMask=0027
+Environment=PYTHONUNBUFFERED=1
+Environment=EVENTHUB_CONFIG={{ config_path }}
+
+[Install]
+WantedBy=multi-user.target

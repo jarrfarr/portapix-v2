@@ -48,3 +48,31 @@ interfaces in `eventhub.core.adapters`.  No module calls `subprocess` or
 The development venv here runs a newer Python, but the project uses only
 3.11-compatible syntax (`StrEnum`, `tomllib`, `X | Y` unions) because
 Raspberry Pi OS Bookworm ships 3.11.  A CI matrix should include 3.11 and 3.13.
+
+## 2026-11-02 — Installer steps are idempotent and testable
+
+The installer never calls `subprocess` or `pathlib` directly; it uses the same
+`Runtime` adapters as every module.  Steps return `StepResult` values and can
+run in `dry_run`.  The first-run wizard renders its review screen before
+changing anything, then hands the same answers to `Installer.install`.
+
+Cancellation is cooperative: the TUI sets an event, and the installer checks
+it between steps.  A cancelled install restores the previous config file.  It
+does not attempt to uninstall system packages, because doing so is riskier than
+leaving them installed for the next repair run.
+
+## 2026-11-02 — Bootstrap is the only shell
+
+`bootstrap.sh` installs git/curl/python3/venv, finds a local checkout or clones
+the repo, creates `/opt/eventhub/venv`, installs the wheel, then `exec`s the
+Python TUI.  When run through `curl | bash`, it reattaches stdin to `/dev/tty`;
+if there is no terminal it falls back to `eventhub install --yes`.  The
+repository URL and branch are environment-overridable.
+
+## 2026-11-02 — Systemd units are rendered from Jinja templates
+
+Units are installed into `/etc/systemd/system` and enabled only for modules
+that are both available in the build and enabled in config.  Distro units
+(hostapd, dnsmasq, smbd, avahi) are enabled but never overwritten.  Unit files
+run the installed venv entry point, never a shell command string.
+

@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tests.support import FakeFileSystem, make_runtime
-
 from eventhub.core.config import AppConfig
 from eventhub.core.orchestrator import ApplyEngine
 from eventhub.core.types import (
@@ -13,6 +11,7 @@ from eventhub.core.types import (
     ValidationIssue,
 )
 from eventhub.service_api import ServiceModule
+from tests.support import FakeFileSystem, make_runtime
 
 
 class DummyService(ServiceModule):

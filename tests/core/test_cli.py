@@ -3,11 +3,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from tests.support import make_config
 from typer.testing import CliRunner
 
 from eventhub.cli import app
 from eventhub.core.config import save_config
+from tests.support import make_config
 
 runner = CliRunner()
 

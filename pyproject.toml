@@ -26,6 +26,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+copyparty = [
+  "copyparty>=1.13,<2",
+]
 dev = [
   "pytest>=8.0,<9",
   "pytest-asyncio>=0.23,<1",
@@ -44,6 +47,9 @@ eventhub = "eventhub.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/eventhub"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"templates" = "eventhub/templates"
 
 [tool.hatch.build.targets.sdist]
 include = ["src", "templates", "systemd", "tests", "docs", "README.md", "bootstrap.sh"]
@@ -64,7 +70,7 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "ASYNC"]
 ignore = ["B008"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["eventhub"]
+known-first-party = ["eventhub", "tests"]
 
 [tool.mypy]
 python_version = "3.11"

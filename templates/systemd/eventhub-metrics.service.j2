@@ -1,0 +1,21 @@
+[Unit]
+Description=EventHub system metrics and power monitor
+After=network.target
+ConditionPathExists={{ config_path }}
+
+[Service]
+Type=simple
+ExecStart={{ venv }}/bin/eventhub --config {{ config_path }} system metrics
+Restart=on-failure
+RestartSec=5
+User=root
+Group=root
+NoNewPrivileges=yes
+ProtectHome=read-only
+ProtectSystem=strict
+ReadWritePaths=/run/eventhub /var/lib/eventhub /var/log/eventhub
+Environment=PYTHONUNBUFFERED=1
+Environment=EVENTHUB_CONFIG={{ config_path }}
+
+[Install]
+WantedBy=multi-user.target

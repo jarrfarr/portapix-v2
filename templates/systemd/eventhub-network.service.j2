@@ -1,0 +1,22 @@
+[Unit]
+Description=EventHub network rules and uplink
+After=network-pre.target
+Before=network.target
+Wants=network-pre.target
+ConditionPathExists={{ config_path }}
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart={{ venv }}/bin/eventhub --config {{ config_path }} apply --module network --no-reload
+ExecStop={{ venv }}/bin/eventhub --config {{ config_path }} module network stop
+User=root
+Group=root
+NoNewPrivileges=yes
+ProtectHome=read-only
+ProtectSystem=full
+Environment=PYTHONUNBUFFERED=1
+Environment=EVENTHUB_CONFIG={{ config_path }}
+
+[Install]
+WantedBy=multi-user.target

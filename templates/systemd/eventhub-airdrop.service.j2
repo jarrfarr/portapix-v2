@@ -1,0 +1,27 @@
+[Unit]
+Description=EventHub AirDrop receiver (omdrop-owl)
+After=network.target eventhub-network.service eventhub-helper.service
+Wants=eventhub-network.service
+ConditionPathExists={{ config_path }}
+ConditionPathExists={{ airdrop.owl_dir }}/owl
+
+[Service]
+Type=simple
+ExecStart={{ venv }}/bin/eventhub --config {{ config_path }} module airdrop run
+Restart=on-failure
+RestartSec=5
+User={{ airdrop_user }}
+Group={{ service_group }}
+AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
+CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=read-only
+ProtectSystem=strict
+ReadWritePaths={{ events_root }} {{ data_root }}/inbox {{ state_dir }} {{ log_dir }}
+UMask=0027
+Environment=PYTHONUNBUFFERED=1
+Environment=EVENTHUB_CONFIG={{ config_path }}
+
+[Install]
+WantedBy=multi-user.target
