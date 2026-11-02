@@ -10,7 +10,7 @@ and receives AirDrop transfers — all without internet.
 On a Raspberry Pi running Raspberry Pi OS Bookworm (64-bit recommended):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/jarrfarr/portapix-v2/master/bootstrap.sh | sudo bash
+curl -fsSL https://github.com/jarrfarr/portapix-v2/raw/master/bootstrap.sh | sudo bash
 ```
 
 Set `OWNER` to your GitHub account, or override:

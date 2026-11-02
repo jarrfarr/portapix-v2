@@ -3,7 +3,7 @@
 ## One command
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/jarrfarr/portapix-v2/master/bootstrap.sh | sudo bash
+curl -fsSL https://github.com/jarrfarr/portapix-v2/raw/master/bootstrap.sh | sudo bash
 ```
 
 Replace `OWNER` with the repository owner, or set `EVENTHUB_REPO_URL`:
