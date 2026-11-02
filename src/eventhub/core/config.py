@@ -629,7 +629,7 @@ class SystemConfig(StrictModel):
     overlay_root: bool = False
     swap_size_mb: int = Field(default=1024, ge=0)
     boot_timeout: int = Field(default=90, ge=10)
-    update_repo: str = "https://github.com/OWNER/eventhub"
+    update_repo: str = "https://github.com/jarrfarr/portapix-v2"
     update_branch: str = "main"
     update_check: bool = True
     automatic_reboot: bool = False
@@ -639,7 +639,7 @@ class SystemConfig(StrictModel):
 
 
 class InstallConfig(StrictModel):
-    repo_url: str = "https://github.com/OWNER/eventhub"
+    repo_url: str = "https://github.com/jarrfarr/portapix-v2"
     branch: str = "main"
     install_root: Path = Path("/opt/eventhub")
     venv_path: Path = Path("/opt/eventhub/venv")

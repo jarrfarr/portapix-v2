@@ -4,8 +4,8 @@
 # non-Python entry point in the project.
 set -Eeuo pipefail
 
-REPO_URL="${EVENTHUB_REPO_URL:-https://github.com/OWNER/eventhub}"
-BRANCH="${EVENTHUB_BRANCH:-main}"
+REPO_URL="${EVENTHUB_REPO_URL:-https://github.com/jarrfarr/portapix-v2}"
+BRANCH="${EVENTHUB_BRANCH:-master}"
 INSTALL_ROOT="${EVENTHUB_INSTALL_ROOT:-/opt/eventhub}"
 VENV="${INSTALL_ROOT}/venv"
 REPO_DIR="${INSTALL_ROOT}/repo"

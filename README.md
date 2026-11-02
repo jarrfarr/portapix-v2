@@ -10,13 +10,13 @@ and receives AirDrop transfers — all without internet.
 On a Raspberry Pi running Raspberry Pi OS Bookworm (64-bit recommended):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/OWNER/eventhub/main/bootstrap.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/jarrfarr/portapix-v2/master/bootstrap.sh | sudo bash
 ```
 
 Set `OWNER` to your GitHub account, or override:
 
 ```sh
-curl -fsSL .../bootstrap.sh | sudo EVENTHUB_REPO_URL=https://github.com/you/eventhub bash
+curl -fsSL .../bootstrap.sh | sudo EVENTHUB_REPO_URL=https://github.com/jarrfarr/portapix-v2 bash
 ```
 
 From a checkout:
