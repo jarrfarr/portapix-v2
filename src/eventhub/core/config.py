@@ -554,24 +554,45 @@ class HelperConfig(StrictModel):
         default_factory=lambda: [
             "apply",
             "status",
+            "overview",
+            "modules.list",
+            "config.get",
+            "config.patch",
             "service.start",
             "service.stop",
             "service.restart",
             "module.enable",
             "module.disable",
+            "user.list",
             "user.create",
             "user.update",
             "user.delete",
+            "user.password",
+            "user.guest_link",
+            "event.list",
             "event.create",
             "event.activate",
             "event.archive",
+            "event.restore",
+            "event.access",
+            "storage.drives",
+            "storage.usage",
             "storage.mount",
             "storage.unmount",
             "storage.format",
+            "network.status",
             "network.scan",
             "network.connect",
+            "network.disconnect",
             "network.test",
+            "hotspot.status",
+            "hotspot.clients",
             "hotspot.kick",
+            "airdrop.status",
+            "airdrop.doctor",
+            "airdrop.target",
+            "system.overview",
+            "system.logs",
             "system.reboot",
             "system.shutdown",
             "system.export",
@@ -581,6 +602,9 @@ class HelperConfig(StrictModel):
             "recovery.admin_password",
             "recovery.hotspot",
             "recovery.detect",
+            "backup.export",
+            "backup.list",
+            "backup.restore",
         ]
     )
 
@@ -621,6 +645,7 @@ class InstallConfig(StrictModel):
     service_user: str = "eventhub"
     service_group: str = "eventhub"
     dashboard_user: str = "eventhub-web"
+    dashboard_group: str = "eventhub-web"
     airdrop_user: str = "eventhub-airdrop"
     admin_password_file: Path = Path("/var/lib/eventhub/first-boot-admin.txt")
 

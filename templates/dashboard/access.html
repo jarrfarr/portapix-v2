@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Access · EventHub{% endblock %}
+{% block content %}
+<h1>Access</h1>
+
+<div class="card">
+  <h2>Protocols</h2>
+  {% set smb = config.get('fileserver_smb', {}).get('enabled', false) %}
+  {% set cp = config.get('fileserver_copyparty', {}).get('enabled', false) %}
+  {% set air = config.get('airdrop', {}).get('enabled', false) %}
+  <form method="post" action="/access/protocols">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <label class="check"><input type="checkbox" name="smb" value="1" {{ 'checked' if smb else '' }}> SMB enabled</label>
+    <label class="check"><input type="checkbox" name="copyparty" value="1" {{ 'checked' if cp else '' }}> copyparty enabled</label>
+    <label class="check"><input type="checkbox" name="airdrop" value="1" {{ 'checked' if air else '' }}> AirDrop enabled</label>
+    <button class="primary" type="submit">Save protocols</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Matrix</h2>
+  <table>
+    <thead><tr><th>User</th><th>Role</th>{% for event in data.events %}<th>{{ event.slug }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for row in data.matrix %}
+    <tr>
+      <td>{{ row.username }}</td><td>{{ row.role }}</td>
+      {% for event in data.events %}<td>{{ row.events.get(event.slug, 'none') }}</td>{% endfor %}
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <h2>Set one permission</h2>
+  <form method="post" action="/access">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <div class="row">
+      <div><label>User</label><select name="user_id">{% for row in data.matrix %}<option value="{{ row.user_id }}">{{ row.username }}</option>{% endfor %}</select></div>
+      <div><label>Event</label><select name="event_id">{% for event in data.events %}<option value="{{ event.id }}">{{ event.slug }}</option>{% endfor %}</select></div>
+      <div><label>Permission</label><select name="permission">{% for permission in permissions %}<option value="{{ permission }}">{{ permission }}</option>{% endfor %}</select></div>
+    </div>
+    <button class="primary" type="submit">Update access</button>
+  </form>
+</div>
+{% endblock %}

@@ -180,5 +180,8 @@ def test_unit_names_arch_smb(tmp_path: Path) -> None:
 def test_unit_templates_have_correct_option_order(tmp_path: Path, module: str) -> None:
     config = make_config(tmp_path)
     item = render_units(config, [module])[0]
-    assert "eventhub --config" in item.content
-    assert "eventhub serve --config" not in item.content
+    if module == "dashboard":
+        assert "python -m eventhub.dashboard.app" in item.content
+    else:
+        assert "eventhub --config" in item.content
+        assert "eventhub serve --config" not in item.content

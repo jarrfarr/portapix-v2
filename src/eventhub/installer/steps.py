@@ -7,6 +7,7 @@ installer can be exercised against fake OS adapters.
 
 from __future__ import annotations
 
+import contextlib
 import shutil
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -190,6 +191,16 @@ class PrepareFilesystemStep(InstallStep):
         for path, mode in directories:
             if not ctx.dry_run:
                 ctx.runtime.fs.mkdir(path, mode=mode)
+        if not ctx.dry_run:
+            for path, mode in (
+                (config.state_dir, 0o2770),
+                (config.log_dir, 0o2770),
+                (config.data_root, 0o2770),
+                (ctx.runtime.config_path.parent, 0o750),
+            ):
+                ctx.runtime.fs.chmod(path, mode)
+                with contextlib.suppress(KeyError, OSError):
+                    ctx.runtime.fs.chown(path, "root", config.install.service_group)
         return StepResult(self.id, "ok", f"prepared {len(directories)} directories")
 
 
@@ -249,13 +260,14 @@ class CreateServiceAccountsStep(InstallStep):
         install = ctx.config.install
         users = [
             (install.service_user, install.service_group),
-            (install.dashboard_user, install.service_group),
+            (install.dashboard_user, install.dashboard_group),
             (install.airdrop_user, install.service_group),
         ]
         if ctx.dry_run:
             return StepResult(self.id, "ok", "would create service accounts")
         try:
             self._group(ctx, install.service_group)
+            self._group(ctx, install.dashboard_group)
             self._group(ctx, ctx.config.users.default_group)
             for name, group in users:
                 self._user(ctx, name, group)
@@ -423,6 +435,13 @@ class FirstBootAdminStep(InstallStep):
         )
         path = ctx.config.dashboard.first_boot_password_file
         ctx.runtime.fs.atomic_write(path, content, mode=0o600)
+        db_path = Path(ctx.runtime.db.path)
+        if str(db_path) != ":memory:":
+            try:
+                ctx.runtime.fs.chmod(db_path, 0o660)
+                ctx.runtime.fs.chown(db_path, "root", ctx.config.install.service_group)
+            except (OSError, KeyError):
+                ctx.log("warn", "could not set group permissions on the state database")
         ctx.log("warn", f"first-boot admin password written to {path}")
         return StepResult(
             self.id,

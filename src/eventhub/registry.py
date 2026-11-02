@@ -38,6 +38,7 @@ SERVICE_ORDER: tuple[str, ...] = (
     "fileserver_copyparty",
     "airdrop",
     "discovery",
+    "helper",
     "dashboard",
     "system",
 )
@@ -105,6 +106,12 @@ SERVICE_CATALOG: dict[str, CatalogEntry] = {
         "mDNS Discovery",
         "Avahi hostname and SMB/copyparty service advertisement.",
         "discovery",
+    ),
+    "helper": CatalogEntry(
+        "helper",
+        "Privileged Helper",
+        "Narrow root socket used by the unprivileged dashboard.",
+        "helper",
     ),
     "dashboard": CatalogEntry(
         "dashboard",

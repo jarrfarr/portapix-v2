@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}System · EventHub{% endblock %}
+{% block content %}
+<h1>System</h1>
+{% set o = overview or {} %}
+<div class="grid">
+  <div class="card metric"><div class="label">CPU temperature</div><div class="value">{{ (o.get('cpu_temp_c')|string) + ' °C' if o.get('cpu_temp_c') is not none else 'n/a' }}</div></div>
+  <div class="card metric"><div class="label">Uptime</div><div class="value">{{ ((o.get('uptime_seconds') or 0) / 3600)|round(1) }} h</div></div>
+  <div class="card metric"><div class="label">Load</div><div class="value">{{ o.get('load')|join(', ') if o.get('load') else 'n/a' }}</div></div>
+  <div class="card metric"><div class="label">Throttling</div><div class="value {{ 'bad' if o.get('throttled') and (o.throttled.throttled or o.throttled.undervoltage) else 'ok' }}">{{ 'warning' if o.get('throttled') and (o.throttled.throttled or o.throttled.undervoltage) else 'none' }}</div></div>
+</div>
+
+<div class="card">
+  <h2>Host</h2>
+  <form method="post" action="/system/settings">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <div class="row">
+      <div><label>Hostname</label><input name="hostname" value="{{ config.get('hostname', '') }}"></div>
+      <div><label>Timezone</label><input name="timezone" value="{{ config.get('timezone', '') }}"></div>
+    </div>
+    <button class="primary" type="submit">Save and apply</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Updates</h2>
+  <form method="post" action="/system/update" class="actions">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <label class="check"><input type="checkbox" name="check_only" value="1"> Check only (do not install)</label>
+    <button type="submit">Run update</button>
+  </form>
+  <p class="muted">An update backs up config and the user DB, pulls the pinned GitHub branch, reinstalls the venv and rolls back on failure.</p>
+</div>
+
+<div class="card">
+  <h2>Backup and restore</h2>
+  <form method="post" action="/system/export"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button type="submit">Export backup</button></form>
+  <table>
+    <thead><tr><th>Created</th><th>Version</th><th>Size</th><th>Path</th></tr></thead>
+    <tbody>
+    {% for b in backups %}<tr><td>{{ b.created_at }}</td><td>{{ b.version }}</td><td>{{ (b.size_bytes / 1024)|round(0) }} KiB</td><td class="mono">{{ b.path }}</td></tr>
+    {% else %}<tr><td colspan="4" class="muted">No backups yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  <form method="post" action="/system/import" onsubmit="return confirm('Restore this backup? Current config and users will be replaced.')">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <label>Backup path</label>
+    <input name="path" placeholder="/var/lib/eventhub/backups/eventhub-backup-....zip" required>
+    <button class="danger" type="submit">Restore backup</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Recovery and self-test</h2>
+  <div class="actions">
+    <form method="post" action="/system/selftest"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button type="submit">Run self-test</button></form>
+    <form method="post" action="/system/recovery" onsubmit="return confirm('Reset the admin password?')"><input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="action" value="admin"><button type="submit">Reset admin password</button></form>
+    <form method="post" action="/system/recovery" onsubmit="return confirm('Reset hotspot to EventHub-Recovery defaults?')"><input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="action" value="hotspot"><button type="submit">Reset hotspot</button></form>
+    <form method="post" action="/system/recovery"><input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="action" value="detect"><button type="submit">Re-detect hardware</button></form>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Logs</h2>
+  <table>
+    <thead><tr><th>Module</th><th></th></tr></thead>
+    <tbody>
+    {% for name in ['helper','dashboard','hotspot','network','storage','events','users','fileserver_smb','fileserver_copyparty','airdrop','discovery','system'] %}
+    <tr><td>{{ name }}</td><td><a class="button small" href="/system?log={{ name }}">View</a></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% if log_name %}
+  <h2>{{ log_name }} log</h2>
+  <pre class="log">{{ log_text }}</pre>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Power</h2>
+  <form method="post" action="/system/action" onsubmit="return confirm('Reboot the hub?')">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="action" value="reboot"><input type="hidden" name="confirm" value="1">
+    <button type="submit">Reboot</button>
+  </form>
+  <form method="post" action="/system/action" onsubmit="return confirm('Shut down the hub?')" style="margin-top:8px">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="action" value="shutdown"><input type="hidden" name="confirm" value="1">
+    <button class="danger" type="submit">Shut down</button>
+  </form>
+</div>
+{% endblock %}

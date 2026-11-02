@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Network · EventHub{% endblock %}
+{% block content %}
+<h1>Network and internet</h1>
+{% set n = config.get('network', {}) %}
+{% set uplink = status.get('uplink', {}) %}
+<div class="grid">
+  <div class="card metric"><div class="label">Uplink</div><div class="value {{ 'ok' if uplink.get('online') else 'warn' }}">{{ uplink.get('kind', 'offline') }}</div><div class="muted">{{ uplink.get('interface', '') }} · {{ uplink.get('detail', '') }}</div></div>
+  <div class="card metric"><div class="label">Roles</div><div class="value" style="font-size:1rem">{{ status.get('roles', {}) }}</div></div>
+  <div class="card metric"><div class="label">Wired clients</div><div class="value">{{ status.get('wired_clients', [])|length }}</div></div>
+</div>
+
+<div class="card">
+  <h2>Uplink settings</h2>
+  <form method="post" action="/network/settings">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <div class="row">
+      <div><label>Uplink mode</label><select name="uplink">{% for mode in ['auto', 'wan', 'wifi', 'none'] %}<option value="{{ mode }}" {{ 'selected' if n.get('uplink') == mode else '' }}>{{ mode }}</option>{% endfor %}</select></div>
+      <div><label>Wifi client interface</label><input name="wifi_client_interface" value="{{ n.get('wifi_client_interface', 'auto') }}"></div>
+    </div>
+    <label class="check"><input type="checkbox" name="internet_sharing" value="1" {{ 'checked' if n.get('internet_sharing', true) else '' }}> Share internet with hotspot/LAN clients</label>
+    <button class="primary" type="submit">Save and apply</button>
+  </form>
+  <div class="actions">
+    <form method="post" action="/network/test"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="small" type="submit">Connectivity test</button></form>
+    <form method="post" action="/network/disconnect"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="small" type="submit">Disconnect wifi uplink</button></form>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Wifi scan</h2>
+  <form method="post" action="/network/scan">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <label>Interface (blank = uplink)</label>
+    <input name="interface" placeholder="{{ status.get('roles', {}).get('wan', 'auto') }}">
+    <button type="submit">Scan</button>
+  </form>
+  {% if networks is not none %}
+  <table>
+    <thead><tr><th>SSID</th><th>Signal</th><th>Security</th><th>Channel</th><th>Connect</th></tr></thead>
+    <tbody>
+    {% for net in networks %}
+    <tr>
+      <td>{{ net.get('ssid') }}</td>
+      <td>{{ net.get('signal_dbm') }} dBm</td>
+      <td>{{ net.get('security') }}</td>
+      <td>{{ net.get('channel') }}</td>
+      <td>
+        <form method="post" action="/network/connect" class="actions">
+          <input type="hidden" name="csrf_token" value="{{ csrf }}">
+          <input type="hidden" name="ssid" value="{{ net.get('ssid') }}">
+          <input name="password" type="password" placeholder="password" style="width:130px">
+          <button class="small" type="submit">Connect</button>
+        </form>
+      </td>
+    </tr>
+    {% else %}<tr><td colspan="5" class="muted">No networks found.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+{% endblock %}

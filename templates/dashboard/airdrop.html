@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}AirDrop · EventHub{% endblock %}
+{% block content %}
+<h1>AirDrop</h1>
+{% set a = config.get('airdrop', {}) %}
+{% set st = status.get('status', {}) %}
+<div class="grid">
+  <div class="card metric"><div class="label">Receiver</div><div class="value {{ 'ok' if st.get('healthy') == 'healthy' else 'warn' }}">{{ st.get('healthy', 'unknown') }}</div><div class="muted">{{ status.get('health', '') }}</div></div>
+  <div class="card metric"><div class="label">Adapter</div><div class="value" style="font-size:1rem">{{ status.get('interface') or 'not assigned' }}</div></div>
+  <div class="card metric"><div class="label">Target</div><div class="value" style="font-size:.92rem;word-break:break-all">{{ status.get('target') }}</div></div>
+</div>
+
+{% if doctor %}
+<div class="card">
+  <h2>owly doctor</h2>
+  <pre class="log">{{ doctor|tojson(indent=2) }}</pre>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2>Settings</h2>
+  <form method="post" action="/airdrop">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <label class="check"><input type="checkbox" name="enabled" value="1" {{ 'checked' if a.get('enabled') else '' }}> Enable AirDrop</label>
+    <div class="row">
+      <div><label>Visible name</label><input name="device_name" value="{{ a.get('device_name', 'EventHub') }}"></div>
+      <div><label>Receive mode</label><select name="receive_mode"><option value="everyone" {{ 'selected' if a.get('receive_mode') == 'everyone' else '' }}>Everyone (supported)</option><option value="contacts" {{ 'selected' if a.get('receive_mode') == 'contacts' else '' }}>Contacts (falls back to Everyone)</option></select></div>
+      <div><label>Adapter interface</label><input name="interface" value="{{ a.get('interface', 'auto') }}"></div>
+    </div>
+    <label class="check"><input type="checkbox" name="target_follows_active_event" value="1" {{ 'checked' if a.get('target_follows_active_event', true) else '' }}> Receive into the active event</label>
+    <button class="primary" type="submit">Save and apply</button>
+  </form>
+  <form method="post" action="/airdrop/doctor" style="margin-top:10px"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button type="submit">Run owly doctor</button></form>
+</div>
+
+<div class="card">
+  <h2>Notes</h2>
+  <p class="muted">AirDrop uses a dedicated USB wifi adapter with monitor-mode support. iPhones must use “Everyone for 10 minutes”. Contacts-only mode is not implemented by owly. See docs/AIRDROP.md for compatible chipsets and known limitations.</p>
+</div>
+{% endblock %}

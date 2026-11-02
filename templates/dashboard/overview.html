@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Overview · EventHub{% endblock %}
+{% block content %}
+<h1>Overview</h1>
+{% if not data %}
+<div class="card"><p class="bad">The helper did not return overview data.</p><p class="muted">Check that eventhub-helper.service is running and the socket is reachable.</p></div>
+{% else %}
+{% set system = data.system or {} %}
+<div class="grid">
+  <div class="card metric"><div class="label">Hotspot</div><div class="value">{{ data.roles.get('ap') or 'not assigned' }}</div><div class="muted">{{ data.wifi_clients|length }} wifi client(s)</div></div>
+  <div class="card metric"><div class="label">Internet</div><div class="value {{ 'ok' if data.uplink.online else 'warn' }}">{{ data.uplink.kind }}</div><div class="muted">{{ data.uplink.interface or 'offline' }}</div></div>
+  <div class="card metric"><div class="label">Storage</div><div class="value">{{ (data.storage.used_percent|string) + '%' if data.storage.mounted else 'not mounted' }}</div><div class="muted">{{ data.storage.mount_point }}</div></div>
+  <div class="card metric"><div class="label">CPU temperature</div><div class="value">{{ (system.cpu_temp_c|string) + ' °C' if system.cpu_temp_c is not none else 'n/a' }}</div><div class="muted">load {{ system.load|join(', ') if system.load else 'n/a' }}</div></div>
+  <div class="card metric"><div class="label">Memory</div><div class="value">{{ (system.memory.used_percent|string) + '%' if system.memory else 'n/a' }}</div><div class="muted">{{ 'throttled' if system.throttled and system.throttled.throttled else 'no throttle flag' }}</div></div>
+  <div class="card metric"><div class="label">Wired clients</div><div class="value">{{ data.wired_clients|length }}</div><div class="muted">{{ data.roles.get('lan') or 'no LAN' }}</div></div>
+</div>
+
+{% if system.throttled and (system.throttled.undervoltage or system.throttled.throttled) %}
+<div class="flash error">Power warning: undervoltage={{ system.throttled.undervoltage }}, throttled={{ system.throttled.throttled }}. Check the PSU and cable.</div>
+{% endif %}
+
+<h2>Services</h2>
+<div class="card">
+  <table>
+    <thead><tr><th>Module</th><th>Installed</th><th>Enabled</th><th>Running</th><th>Health</th><th class="hide-mobile">Detail</th></tr></thead>
+    <tbody>
+    {% for name, st in data.statuses.items() %}
+      <tr>
+        <td><strong>{{ name }}</strong></td>
+        <td>{{ 'yes' if st.installed else 'no' }}</td>
+        <td>{{ 'yes' if st.enabled else 'no' }}</td>
+        <td>{{ 'yes' if st.running else 'no' }}</td>
+        <td><span class="badge {{ 'ok' if st.healthy == 'healthy' else 'bad' if st.healthy == 'unhealthy' else 'muted' }}">{{ st.healthy }}</span></td>
+        <td class="muted hide-mobile">{{ st.detail }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<h2>Network</h2>
+<div class="grid">
+  <div class="card">
+    <div class="label muted">Uplink</div>
+    <p><strong>{{ data.uplink.kind }}</strong> {{ data.uplink.interface }}<br><span class="muted">{{ data.uplink.detail }}</span></p>
+    <div class="actions">
+      <form method="post" action="/network/test" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="small" type="submit">Connectivity test</button></form>
+      <a class="button small" href="/network">Manage</a>
+    </div>
+  </div>
+  <div class="card">
+    <div class="label muted">Wifi clients</div>
+    {% if data.wifi_clients %}
+    <table><thead><tr><th>MAC</th><th>Signal</th></tr></thead><tbody>
+      {% for client in data.wifi_clients %}<tr><td class="mono">{{ client.mac }}</td><td>{{ client.signal }}</td></tr>{% endfor %}
+    </tbody></table>
+    {% else %}<p class="muted">No wifi clients connected.</p>{% endif %}
+  </div>
+  <div class="card">
+    <div class="label muted">Wired clients</div>
+    {% if data.wired_clients %}
+    <table><thead><tr><th>IP</th><th>MAC</th></tr></thead><tbody>
+      {% for client in data.wired_clients %}<tr><td class="mono">{{ client.ip }}</td><td class="mono">{{ client.mac }}</td></tr>{% endfor %}
+    </tbody></table>
+    {% else %}<p class="muted">No wired clients seen.</p>{% endif %}
+  </div>
+</div>
+
+{% if data.storage %}
+<h2>Storage</h2>
+<div class="card">
+  <p>Mount: <span class="mono">{{ data.storage.mount_point }}</span> · {{ 'mounted' if data.storage.mounted else 'not mounted' }}</p>
+  {% if data.storage.total_bytes %}
+  <p>{{ (data.storage.used_bytes / 1073741824)|round(1) }} GiB used of {{ (data.storage.total_bytes / 1073741824)|round(1) }} GiB
+    ({{ data.storage.used_percent }}%)</p>
+  {% endif %}
+  <a class="button small" href="/storage">Manage storage</a>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

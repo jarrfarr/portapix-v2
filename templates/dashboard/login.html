@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Sign in · EventHub{% endblock %}
+{% block content %}
+<div class="auth">
+  <div class="card">
+    <h1>EventHub</h1>
+    <p class="muted">Sign in with your EventHub account. Use the first-boot password from <span class="mono">/var/lib/eventhub/first-boot-admin.txt</span> if this is a new hub.</p>
+    {% if error %}<div class="flash error">{{ error }}</div>{% endif %}
+    <form method="post" action="/login">
+      <input type="hidden" name="next" value="{{ next_path }}">
+      <label for="username">Username</label>
+      <input id="username" name="username" autocomplete="username" autofocus required>
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required>
+      <div class="actions" style="margin-top:14px">
+        <button class="primary" type="submit">Sign in</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

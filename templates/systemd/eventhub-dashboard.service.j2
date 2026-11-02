@@ -6,11 +6,11 @@ ConditionPathExists={{ config_path }}
 
 [Service]
 Type=simple
-ExecStart={{ venv }}/bin/eventhub --config {{ config_path }} serve
+ExecStart={{ venv }}/bin/python -m eventhub.dashboard.app
 Restart=on-failure
 RestartSec=3
 User={{ dashboard_user }}
-Group={{ service_group }}
+Group={{ install.dashboard_group }}
 SupplementaryGroups={{ service_group }}
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 CapabilityBoundingSet=CAP_NET_BIND_SERVICE
@@ -23,6 +23,7 @@ ReadWritePaths={{ state_dir }} {{ log_dir }}
 UMask=0027
 Environment=PYTHONUNBUFFERED=1
 Environment=EVENTHUB_CONFIG={{ config_path }}
+Environment=EVENTHUB_DASHBOARD_CONFIG=/etc/eventhub/dashboard.json
 Environment=EVENTHUB_HELPER_SOCKET={{ helper.socket_path }}
 
 [Install]

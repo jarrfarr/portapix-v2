@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Hotspot · EventHub{% endblock %}
+{% block content %}
+<h1>Hotspot</h1>
+{% set h = config.get('hotspot', {}) %}
+<div class="grid">
+  <div class="card metric"><div class="label">SSID</div><div class="value">{{ h.get('ssid', status.get('ssid', '')) }}</div><div class="muted">{{ status.get('interface') or 'no interface' }}</div></div>
+  <div class="card metric"><div class="label">Clients</div><div class="value">{{ status.get('clients', [])|length }}</div><div class="muted">{{ status.get('status', {}).get('detail', '') }}</div></div>
+</div>
+
+<div class="card">
+  <h2>Settings</h2>
+  <form method="post" action="/hotspot">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <div class="row">
+      <div><label>SSID</label><input name="ssid" value="{{ h.get('ssid', '') }}" maxlength="32" required></div>
+      <div><label>New password (blank keeps current)</label><input name="password" type="password" minlength="8" maxlength="63"></div>
+      <div><label>Country code</label><input name="country" value="{{ h.get('country_code', '') }}" maxlength="2" required></div>
+      <div><label>Band</label><select name="band">{% for band in ['auto', '2.4', '5'] %}<option value="{{ band }}" {{ 'selected' if h.get('band') == band else '' }}>{{ band }}</option>{% endfor %}</select></div>
+      <div><label>Channel (0 = auto)</label><input name="channel" value="{{ h.get('channel', 0) }}" inputmode="numeric"></div>
+      <div><label>Subnet</label><input name="subnet" value="{{ h.get('subnet', '10.42.0.0/24') }}"></div>
+      <div><label>DHCP start</label><input name="dhcp_start" value="{{ h.get('dhcp_start', '') }}"></div>
+      <div><label>DHCP end</label><input name="dhcp_end" value="{{ h.get('dhcp_end', '') }}"></div>
+    </div>
+    <label class="check"><input type="checkbox" name="hidden" value="1" {{ 'checked' if h.get('hidden') else '' }}> Hide SSID</label>
+    <label class="check"><input type="checkbox" name="client_isolation" value="1" {{ 'checked' if h.get('client_isolation') else '' }}> Client isolation</label>
+    <button class="primary" type="submit">Save and apply</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Connected clients</h2>
+  <table>
+    <thead><tr><th>MAC</th><th>Signal</th><th>Connected</th><th></th></tr></thead>
+    <tbody>
+    {% for client in status.get('clients', []) %}
+    <tr>
+      <td class="mono">{{ client.get('mac') }}</td>
+      <td>{{ client.get('signal', '') }}</td>
+      <td>{{ client.get('connected_time', '') }}</td>
+      <td><form method="post" action="/hotspot/kick"><input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="mac" value="{{ client.get('mac') }}"><button class="small danger" type="submit">Kick</button></form></td>
+    </tr>
+    {% else %}<tr><td colspan="4" class="muted">No clients connected.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

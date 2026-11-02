@@ -164,6 +164,38 @@ bound to the AP and LAN interfaces by default; WAN is never advertised.
 Avahi advertises on the AP/LAN only.  Owly runs its own mDNS responder on
 `awdl0` for AirDrop; mixing the two would break the AWDL timing/announcements.
 
+## 2026-11-02 — The dashboard never reads the root config
+
+The unprivileged dashboard gets a dedicated `/etc/eventhub/dashboard.json`
+(mode `0640 root:eventhub-web`) rendered by the dashboard module.  It contains
+only the session secret, bind/helper/db settings and is readable by the
+dashboard group, not the full wifi/protocol secrets.  All configuration views
+and mutations go through the helper; the dashboard only reads SQLite for
+sessions and login verification.
+
+## 2026-11-02 — Helper authentication is peer credentials + allow-list
+
+There is no shared token to leak.  The helper checks `SO_PEERCRED` and allows
+root, the dashboard/service users, or members of the socket group; the socket
+directory is `0750` and the socket `0660`.  Actions are high-level and fixed;
+the dashboard cannot submit a command, executable path, or arbitrary device.
+Every action is audited in SQLite.
+
+## 2026-11-02 — Sessions and CSRF use opaque IDs in SQLite
+
+The cookie is a signed opaque session id (itsdangerous), not a JWT carrying
+claims.  Revoking a session is a DB update, and the CSRF token lives beside it.
+Login attempts are rate-limited per IP in process; the dashboard is intentionally
+one uvicorn worker to keep that accounting simple and RAM use low.
+
+## 2026-11-02 — htmx is vendored
+
+The dashboard ships `htmx.min.js` under `templates/dashboard/static` instead of
+loading a CDN, because the hub must work with no internet.  Forms are ordinary
+HTML POSTs with server redirects; htmx is available for progressive enhancement
+without a Node build step.
+
+
 
 
 

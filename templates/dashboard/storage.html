@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Storage · EventHub{% endblock %}
+{% block content %}
+<h1>Storage</h1>
+{% set usage = data.get('usage', {}) %}
+{% set s = config.get('storage', {}) %}
+{% set drive = s.get('drive', {}) %}
+<div class="grid">
+  <div class="card metric"><div class="label">Mount</div><div class="value {{ 'ok' if usage.get('mounted') else 'warn' }}">{{ 'mounted' if usage.get('mounted') else 'not mounted' }}</div><div class="muted mono">{{ usage.get('mount_point') }}</div></div>
+  <div class="card metric"><div class="label">Used</div><div class="value">{{ (usage.get('used_percent')|string) + '%' if usage.get('used_percent') is not none else 'n/a' }}</div><div class="muted">{{ ((usage.get('used_bytes', 0) / 1073741824)|round(1)) }} GiB</div></div>
+  <div class="card metric"><div class="label">Free</div><div class="value">{{ ((usage.get('free_bytes', 0) / 1073741824)|round(1)) }} GiB</div></div>
+</div>
+
+<div class="card">
+  <h2>Selected drive</h2>
+  <p>UUID <span class="mono">{{ drive.get('uuid') or '-' }}</span> · type {{ drive.get('fstype') }} · mount <span class="mono">{{ drive.get('mount_point') }}</span></p>
+  <div class="actions">
+    <form method="post" action="/storage/mount"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="small" type="submit">Mount</button></form>
+    <form method="post" action="/storage/unmount" onsubmit="return confirm('Safely eject the storage drive?')"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="small" type="submit">Eject / unmount</button></form>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Detected drives</h2>
+  <table>
+    <thead><tr><th>Device</th><th>UUID</th><th>Label</th><th>FS</th><th>Size</th><th>Mounted</th></tr></thead>
+    <tbody>
+    {% for d in data.get('drives', []) %}
+    <tr><td class="mono">{{ d.device }}</td><td class="mono">{{ d.uuid }}</td><td>{{ d.label }}</td><td>{{ d.fstype }}</td><td>{{ (d.size_bytes / 1073741824)|round(1) }} GiB</td><td>{{ d.mount_point or '-' }}</td></tr>
+    {% else %}<tr><td colspan="6" class="muted">No removable drives detected.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h2>Format drive</h2>
+  <p class="bad">Destructive. Type <strong>FORMAT</strong> to confirm. The drive must be removable and unmounted first.</p>
+  <form method="post" action="/storage/format">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <div class="row">
+      <div><label>Filesystem</label><select name="fstype"><option value="ext4">ext4</option><option value="exfat">exfat</option></select></div>
+      <div><label>Label</label><input name="label" value="EVENTHUB"></div>
+      <div><label>Confirmation</label><input name="confirmation" placeholder="FORMAT" required></div>
+    </div>
+    <button class="danger" type="submit" onclick="return confirm('Format the selected drive? This erases it.')">Format drive</button>
+  </form>
+</div>
+{% endblock %}

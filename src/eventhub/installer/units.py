@@ -17,8 +17,7 @@ from eventhub.installer.distro import Distro, PackageManager
 
 # module -> template stems
 UNIT_TEMPLATES: dict[str, tuple[str, ...]] = {
-    "helper": ("eventhub-helper.service.j2",),
-    "dashboard": ("eventhub-dashboard.service.j2",),
+    "helper": ("eventhub-helper.service.j2",),    "dashboard": ("eventhub-dashboard.service.j2",),
     "fileserver_copyparty": ("eventhub-copyparty.service.j2",),
     "airdrop": ("eventhub-radio.service.j2", "eventhub-airdrop.service.j2"),
     "network": ("eventhub-network.service.j2",),
@@ -46,6 +45,7 @@ class UnitInfo:
 def _context(config: AppConfig, *, unit_path: Path) -> dict[str, object]:
     return {
         "config": config,
+        "install": config.install,
         "config_path": config.install.config_path,
         "install_root": config.install.install_root,
         "venv": config.install.venv_path,

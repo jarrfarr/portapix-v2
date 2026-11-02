@@ -1521,6 +1521,85 @@ def discovery_status(
 
 
 # ---------------------------------------------------------------------------
+# helper socket
+# ---------------------------------------------------------------------------
+
+
+helper_app = typer.Typer(help="Run or query the privileged helper socket.")
+app.add_typer(helper_app, name="helper")
+
+
+@helper_app.command("serve")
+def helper_serve(ctx: typer.Context) -> None:
+    """Run the root helper daemon (normally started by systemd)."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.helper.server import run_helper
+
+        runtime = state.runtime()
+        if not runtime.privileged:
+            _handle_error(EventHubError("the helper must run as root"))
+        run_helper(runtime)
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@helper_app.command("ping")
+def helper_ping(ctx: typer.Context) -> None:
+    """Check whether the helper socket is reachable."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.helper.client import HelperClient
+
+        client = HelperClient(state.runtime().config.helper.socket_path)
+        if not client.ping():
+            _handle_error(EventHubError("helper socket is not reachable"))
+        console.print("[green]helper socket is reachable[/green]")
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@helper_app.command("call")
+def helper_call(
+    ctx: typer.Context,
+    action: str = typer.Argument(...),
+    payload: str = typer.Option("{}", "--payload", help="JSON object payload."),
+) -> None:
+    """Call one allow-listed helper action and print the JSON response."""
+
+    state = _state(ctx)
+    try:
+        import json as json_module
+
+        from eventhub.helper.client import HelperClient
+
+        try:
+            decoded = json_module.loads(payload)
+        except ValueError:
+            _handle_error(EventHubError("payload is not valid JSON"))
+            return
+        if not isinstance(decoded, dict):
+            _handle_error(EventHubError("payload must be a JSON object"))
+            return
+        response = HelperClient(
+            state.runtime().config.helper.socket_path
+        ).call_sync(action, decoded)
+        console.print_json(json_module.dumps(response.as_dict(), indent=2))
+        if not response.ok:
+            raise typer.Exit(1)
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+# ---------------------------------------------------------------------------
 # placeholders wired up in later phases
 # ---------------------------------------------------------------------------
 

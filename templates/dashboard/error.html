@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Error · EventHub{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>{{ status }}</h1>
+  <p>{{ message }}</p>
+  <p><a href="/">Back to overview</a></p>
+</div>
+{% endblock %}

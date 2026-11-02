@@ -16,6 +16,38 @@ def populate_system(fs: FakeFileSystem, distro: str = "debian") -> None:
     )
 
 
+
+def install_runtime(tmp_path: Path, fs: FakeFileSystem, systemd: FakeSystemd | None = None):
+    runtime = make_runtime(
+        tmp_path,
+        fs=fs,
+        systemd=systemd or FakeSystemd(),
+        runner=FakeRunner(
+            binaries={
+                "systemctl",
+                "apt-get",
+                "git",
+                "nft",
+                "sysctl",
+                "hostapd",
+                "dnsmasq",
+                "iw",
+                "rfkill",
+                "ip",
+                "smbpasswd",
+                "testparm",
+                "ss",
+                "curl",
+                "avahi-resolve",
+                "hostnamectl",
+                "avahi-daemon",
+            }
+        ),
+    )
+    fs.atomic_write(runtime.config.install.venv_path / "bin" / "copyparty", "#!/bin/sh\n")
+    return runtime
+
+
 def test_install_requires_root(tmp_path: Path) -> None:
     runtime = make_runtime(tmp_path, privileged=False)
     result = Installer(runtime).install()
@@ -38,7 +70,7 @@ def test_install_full_with_fakes(tmp_path: Path) -> None:
     fs = FakeFileSystem()
     populate_system(fs)
     systemd = FakeSystemd()
-    runtime = make_runtime(tmp_path, fs=fs, systemd=systemd)
+    runtime = install_runtime(tmp_path, fs, systemd)
     result = Installer(runtime).install(unattended=True)
     assert result.ok, result.message
     assert result.admin_password
@@ -51,8 +83,8 @@ def test_install_full_with_fakes(tmp_path: Path) -> None:
     assert fs.exists(password_file)
     assert result.admin_password in fs.read_text(password_file)
     assert fs.mode_of(password_file) == 0o600
-    # no modules exist yet, so no unit files are rendered
-    assert not fs.exists("/etc/systemd/system/eventhub-helper.service")
+    assert fs.exists("/etc/systemd/system/eventhub-helper.service")
+    assert fs.exists("/etc/systemd/system/eventhub-dashboard.service")
     # package manager was invoked
     assert runtime.runner.called("apt-get update")
     assert runtime.runner.called("apt-get install")
@@ -61,7 +93,7 @@ def test_install_full_with_fakes(tmp_path: Path) -> None:
 def test_install_is_idempotent(tmp_path: Path) -> None:
     fs = FakeFileSystem()
     populate_system(fs)
-    runtime = make_runtime(tmp_path, fs=fs)
+    runtime = install_runtime(tmp_path, fs)
     first = Installer(runtime).install(unattended=True)
     assert first.ok, first.message
     second = Installer(runtime).install(unattended=True)
@@ -83,7 +115,7 @@ def test_install_unsupported_distro_fails(tmp_path: Path) -> None:
 def test_install_skip_packages_allows_unknown_distro(tmp_path: Path) -> None:
     fs = FakeFileSystem()
     fs.write_text("/etc/os-release", 'ID=plan9\nPRETTY_NAME="Plan 9"\n')
-    runtime = make_runtime(tmp_path, fs=fs)
+    runtime = install_runtime(tmp_path, fs)
     result = Installer(runtime).install(unattended=True, skip_packages=True)
     assert result.ok, result.message
     assert fs.exists(runtime.config_path)
@@ -97,7 +129,7 @@ def test_answers_file_merges(tmp_path: Path) -> None:
         answers,
         "hostname: shootbox\nhotspot:\n  ssid: ShootNet\n  password: answers-password\n",
     )
-    runtime = make_runtime(tmp_path, fs=fs)
+    runtime = install_runtime(tmp_path, fs)
     result = Installer(runtime).install(unattended=True, answers_path=answers)
     assert result.ok, result.message
     text = fs.read_text(runtime.config_path)

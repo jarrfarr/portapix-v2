@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}EventHub{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/htmx.min.js" defer></script>
+</head>
+<body>
+{% if session %}
+<header class="top">
+  <a class="brand" href="/">EventHub</a>
+  <nav class="main">
+    <a href="/" class="{{ 'active' if page == 'overview' else '' }}">Overview</a>
+    <a href="/events" class="{{ 'active' if page == 'events' else '' }}">Events</a>
+    <a href="/access" class="{{ 'active' if page == 'access' else '' }}">Access</a>
+    <a href="/users" class="{{ 'active' if page == 'users' else '' }}">Users</a>
+    <a href="/hotspot" class="{{ 'active' if page == 'hotspot' else '' }}">Hotspot</a>
+    <a href="/network" class="{{ 'active' if page == 'network' else '' }}">Network</a>
+    <a href="/airdrop" class="{{ 'active' if page == 'airdrop' else '' }}">AirDrop</a>
+    <a href="/storage" class="{{ 'active' if page == 'storage' else '' }}">Storage</a>
+    <a href="/system" class="{{ 'active' if page == 'system' else '' }}">System</a>
+  </nav>
+  <span class="who">{{ session.username }} · {{ session.role }}</span>
+  <form method="post" action="/logout" class="inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <button class="small" type="submit">Log out</button>
+  </form>
+</header>
+{% endif %}
+<main>
+  {% if ok %}<div class="flash ok">{{ ok }}</div>{% endif %}
+  {% if error %}<div class="flash error">{{ error }}</div>{% endif %}
+  {% block content %}{% endblock %}
+</main>
+<footer>EventHub {{ version }} · offline-first photo hub</footer>
+</body>
+</html>

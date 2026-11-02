@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Events · EventHub{% endblock %}
+{% block content %}
+<h1>Events</h1>
+<p class="muted">Active event: <strong>{{ data.active or 'none' }}</strong>. AirDrop and default uploads land here.</p>
+
+<div class="card">
+  <h2>Create event</h2>
+  <form method="post" action="/events">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <div class="row">
+      <div><label>Name</label><input name="name" required></div>
+      <div><label>Date</label><input name="event_date" type="date"></div>
+      <div><label>Slug (optional)</label><input name="slug" pattern="[a-z0-9][a-z0-9-]*"></div>
+      <div><label>Notes</label><input name="notes"></div>
+    </div>
+    <label class="check"><input type="checkbox" name="activate" value="1" checked> Activate this event</label>
+    <button class="primary" type="submit">Create event</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>All events</h2>
+  <table>
+    <thead><tr><th>Event</th><th>Date</th><th>Status</th><th>Size</th><th>Actions</th></tr></thead>
+    <tbody>
+    {% for event in data.events %}
+    <tr>
+      <td><strong>{{ event.name }}</strong><br><span class="mono muted">{{ event.slug }}</span></td>
+      <td>{{ event.event_date }}</td>
+      <td><span class="badge {{ 'ok' if event.status == 'active' else 'muted' }}">{{ event.status }}</span></td>
+      <td>{{ (event.size_bytes / 1048576)|round(1) }} MiB</td>
+      <td>
+        <div class="actions">
+          {% if event.status != 'active' and event.status != 'archived' %}
+          <form method="post" action="/events/{{ event.slug }}/activate"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="small primary" type="submit">Activate</button></form>
+          {% endif %}
+          {% if event.status != 'archived' %}
+          <form method="post" action="/events/{{ event.slug }}/archive" onsubmit="return confirm('Archive {{ event.slug }}? Fileservers will treat it as read-only.')"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="small" type="submit">Archive</button></form>
+          {% else %}
+          <form method="post" action="/events/{{ event.slug }}/restore"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="small" type="submit">Restore</button></form>
+          {% endif %}
+          <a class="button small" href="/access">Access</a>
+        </div>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="muted">No events yet. Create one before the shoot.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<h2>Access matrix</h2>
+<div class="card">
+  <table>
+    <thead><tr><th>User</th><th>Role</th>{% for event in data.events %}<th>{{ event.slug }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for row in data.matrix %}
+    <tr>
+      <td>{{ row.username }}</td><td>{{ row.role }}</td>
+      {% for event in data.events %}<td>{{ row.events.get(event.slug, 'none') }}</td>{% endfor %}
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p><a class="button small" href="/access">Edit matrix</a></p>
+</div>
+{% endblock %}
