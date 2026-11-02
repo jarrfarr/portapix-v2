@@ -1,0 +1,74 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "eventhub"
+version = "0.1.0"
+description = "Portable Raspberry Pi NAS and transfer hub for event photo/video shoots"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "EventHub" }]
+dependencies = [
+  "pydantic>=2.7,<3",
+  "PyYAML>=6.0,<7",
+  "Jinja2>=3.1,<4",
+  "typer>=0.12,<1",
+  "rich>=13.7,<15",
+  "textual>=0.60,<2",
+  "fastapi>=0.110,<1",
+  "uvicorn>=0.29,<1",
+  "itsdangerous>=2.1,<3",
+  "argon2-cffi>=23.1,<26",
+  "python-multipart>=0.0.9,<1",
+  "qrcode>=7.4,<9",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0,<9",
+  "pytest-asyncio>=0.23,<1",
+  "httpx>=0.27,<1",
+  "ruff>=0.6,<1",
+  "mypy>=1.10,<2",
+  "types-PyYAML>=6.0",
+]
+
+[project.scripts]
+eventhub = "eventhub.cli:main"
+
+[project.entry-points."eventhub.services"]
+# Service modules register themselves here as they land. The core registry
+# also discovers `eventhub.<package>.service` modules automatically.
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/eventhub"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "templates", "systemd", "tests", "docs", "README.md", "bootstrap.sh"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-ra"
+filterwarnings = ["error::DeprecationWarning:eventhub.*"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "ASYNC"]
+ignore = ["B008"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["eventhub"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unreachable = true
+show_error_codes = true
+files = ["src/eventhub/core", "src/eventhub/service_api.py"]
