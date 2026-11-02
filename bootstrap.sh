@@ -77,8 +77,13 @@ else
     if [ -d "${REPO_DIR}/.git" ]; then
         log "updating ${REPO_DIR}"
         git -C "${REPO_DIR}" fetch --depth 1 origin "${BRANCH}"
-        git -C "${REPO_DIR}" checkout -q "${BRANCH}"
-        git -C "${REPO_DIR}" pull --ff-only origin "${BRANCH}"
+        CURRENT_BRANCH="$(git -C "${REPO_DIR}" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+        if [ "${CURRENT_BRANCH}" != "${BRANCH}" ]; then
+            git -C "${REPO_DIR}" checkout -q -B "${BRANCH}" FETCH_HEAD
+        elif ! git -C "${REPO_DIR}" merge --ff-only FETCH_HEAD; then
+            warn "installed checkout has diverged; resetting it to origin/${BRANCH}"
+            git -C "${REPO_DIR}" reset --hard FETCH_HEAD
+        fi
     else
         log "cloning ${REPO_URL} (${BRANCH})"
         git clone --depth 1 --branch "${BRANCH}" "${REPO_URL}" "${REPO_DIR}"
