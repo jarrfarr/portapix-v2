@@ -16,7 +16,15 @@ from eventhub.network.hardware import HardwareReport
 from eventhub.tui.common import BaseScreen, ProgressScreen, SummaryScreen
 from eventhub.tui.service import OpResult
 
-REQUIRED_MODULES = {"network", "hotspot", "storage", "events", "users", "dashboard"}
+REQUIRED_MODULES = {
+    "network",
+    "hotspot",
+    "storage",
+    "events",
+    "users",
+    "helper",
+    "dashboard",
+}
 
 
 @dataclass(slots=True)

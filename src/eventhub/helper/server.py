@@ -149,8 +149,11 @@ class HelperServer:
                 os.chown(path.parent, 0, gid)
                 os.chmod(path.parent, 0o750)
                 os.chown(path, 0, gid)
-            except KeyError:
-                self.log.warning("socket group %s does not exist", cfg.socket_group)
+            except (KeyError, PermissionError):
+                self.log.warning(
+                    "socket group %s does not exist or is not chownable",
+                    cfg.socket_group,
+                )
             os.chmod(path, cfg.socket_mode)
             self.log.info("helper listening on %s", path)
             await server.serve_forever()

@@ -50,6 +50,17 @@
   </form>
 </div>
 
+{% if recovery_result %}
+<div class="card">
+  <h2>Recovery credentials</h2>
+  {% if recovery_result.get('username') %}<p>Admin user: <strong>{{ recovery_result.get('username') }}</strong></p>{% endif %}
+  {% if recovery_result.get('ssid') %}<p>SSID: <strong>{{ recovery_result.get('ssid') }}</strong></p>{% endif %}
+  {% if recovery_result.get('password') %}<p>Password: <strong class="mono">{{ recovery_result.get('password') }}</strong></p>{% endif %}
+  {% if recovery_result.get('file') %}<p class="muted">Also written to <span class="mono">{{ recovery_result.get('file') }}</span></p>{% endif %}
+  <p class="warn">Store this now; it will not be shown again.</p>
+</div>
+{% endif %}
+
 <div class="card">
   <h2>Recovery and self-test</h2>
   <div class="actions">

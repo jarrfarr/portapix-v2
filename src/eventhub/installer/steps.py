@@ -329,7 +329,8 @@ class InstallPythonEnvironmentStep(InstallStep):
         install = ctx.config.install
         venv_python = install.venv_path / "bin" / "python"
         entry = install.venv_path / "bin" / "eventhub"
-        if ctx.runtime.fs.exists(entry):
+        copyparty = install.venv_path / "bin" / "copyparty"
+        if ctx.runtime.fs.exists(entry) and ctx.runtime.fs.exists(copyparty):
             return StepResult(self.id, "ok", "virtualenv already installed", str(entry))
         if ctx.dry_run:
             return StepResult(self.id, "ok", "would create the virtualenv")

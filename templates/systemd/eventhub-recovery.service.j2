@@ -1,0 +1,21 @@
+[Unit]
+Description=EventHub recovery configuration check
+Documentation=file:///etc/eventhub/config.yaml
+After=local-fs.target
+Before=eventhub-network.service eventhub-hostapd.service eventhub-dnsmasq.service eventhub-helper.service eventhub-dashboard.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart={{ venv }}/bin/eventhub --config {{ config_path }} recovery --action boot-check
+User=root
+Group=root
+NoNewPrivileges=yes
+ProtectHome=read-only
+ProtectSystem=strict
+ReadWritePaths=/etc /run/eventhub /var/lib/eventhub /var/log/eventhub /srv/eventhub /media/eventhub
+Environment=PYTHONUNBUFFERED=1
+Environment=EVENTHUB_CONFIG={{ config_path }}
+
+[Install]
+WantedBy=multi-user.target

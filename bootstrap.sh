@@ -97,7 +97,7 @@ if [ ! -x "${VENV}/bin/python" ]; then
 fi
 "${VENV}/bin/pip" install --upgrade pip >/dev/null
 log "installing EventHub (this can take a few minutes on a Pi)"
-"${VENV}/bin/pip" install --upgrade "${SRC}"
+"${VENV}/bin/pip" install --upgrade "${SRC}[copyparty]"
 ok "EventHub installed"
 
 # ---------------------------------------------------------------------------

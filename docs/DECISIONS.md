@@ -195,6 +195,38 @@ loading a CDN, because the hub must work with no internet.  Forms are ordinary
 HTML POSTs with server redirects; htmx is available for progressive enhancement
 without a Node build step.
 
+## 2026-11-02 — Recovery validates config before anything else
+
+`eventhub-recovery.service` runs before network, hotspot, helper and dashboard.
+If `/etc/eventhub/config.yaml` is unreadable/invalid it replaces it with a newly
+generated `EventHub-Recovery` hotspot config and writes credentials to
+`/var/lib/eventhub/recovery-hotspot.txt`.  A valid config is never modified.
+Admin reset and hotspot reset are also available from the CLI/API, but the
+boot check is the only path that can recover a completely broken file.
+
+## 2026-11-02 — Self-test distinguishes fail from skip
+
+`eventhub selftest` never reports a missing probe tool as a service failure.
+Checks are pass/fail/skip; a skipped optional service (AirDrop, storage without
+a drive, internet when offline) does not make the report fail.  Real failures
+include config errors, disabled-but-required admin absence, missing mounts,
+missing nftables table and services that are enabled but not running.
+
+## 2026-11-02 — Metrics are collected in one core helper
+
+`core.metrics.collect_metrics()` is shared by the metrics daemon, helper and
+CLI.  It reads sysfs/proc through the injected filesystem and `vcgencmd` through
+the runner, so every front end reports the same CPU temperature, load, memory,
+throttle and UPS values.
+
+## 2026-11-02 — Overlay root is documented, not auto-flipped
+
+`system.overlay_root` is surfaced in the UI/self-test and documented, but the
+installer does not rewrite the boot cmdline.  A wrong overlay configuration can
+make an unattended hub unbootable; the operator must use the distro/Raspberry
+Pi overlay tooling and reboot deliberately.
+
+
 
 
 

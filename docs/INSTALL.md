@@ -35,13 +35,17 @@ The installer is idempotent.  Running it again repairs an existing install.
 4. Create unprivileged `eventhub`, `eventhub-web` and `eventhub-airdrop` users.
 5. Install system packages (hostapd, dnsmasq, nftables, Samba, Avahi, build
    tools) for the selected modules.
-6. Install EventHub into the venv.
-7. Create the first administrator and write the password to
-   `/var/lib/eventhub/first-boot-admin.txt` mode `0600`.
-8. Render all service configuration, snapshot the previous files and apply
-   atomically.
-9. Install/enable systemd units and start services.
-10. Optionally run `eventhub selftest`.
+6. Build/install owly for AirDrop when a supported adapter is present; warn and
+   disable AirDrop if Rust 1.88+ or the build is unavailable.
+7. Install EventHub into the venv (including the copyparty extra).
+8. Create the first administrator and write the password to
+   `/var/lib/eventhub/first-boot-admin.txt` mode `0600`; set dashboard group
+   permissions on the state DB.
+9. Render all service configuration (including dashboard settings and
+   journald limits), snapshot the previous files and apply atomically.
+10. Install/enable systemd units and start services (metrics, recovery check,
+    helper, dashboard, file servers, hotspot, network, AirDrop, Avahi).
+11. Optionally run `eventhub selftest`.
 
 If a critical step fails, the previous configuration file is restored.  A
 failed service reload triggers the snapshot rollback in the apply engine.

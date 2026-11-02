@@ -22,7 +22,7 @@ UNIT_TEMPLATES: dict[str, tuple[str, ...]] = {
     "airdrop": ("eventhub-radio.service.j2", "eventhub-airdrop.service.j2"),
     "network": ("eventhub-network.service.j2",),
     "hotspot": ("eventhub-hostapd.service.j2", "eventhub-dnsmasq.service.j2"),
-    "system": ("eventhub-metrics.service.j2",),
+    "system": ("eventhub-metrics.service.j2", "eventhub-recovery.service.j2"),
 }
 
 # module -> units owned by distro packages

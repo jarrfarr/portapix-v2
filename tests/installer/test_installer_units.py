@@ -155,7 +155,7 @@ def test_render_all_units(tmp_path: Path) -> None:
         "system",
     ]
     rendered = render_units(config, modules)
-    assert len(rendered) == len(modules) + 2  # hotspot and airdrop each have two units
+    assert len(rendered) == len(modules) + 3  # hotspot, airdrop and system each have two units
     for item in rendered:
         assert item.path.parent == Path("/etc/systemd/system")
         assert "{{" not in item.content

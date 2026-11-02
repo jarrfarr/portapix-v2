@@ -15,7 +15,8 @@ User=root
 Group=root
 NoNewPrivileges=yes
 ProtectHome=read-only
-ProtectSystem=full
+ProtectSystem=strict
+ReadWritePaths=/etc /run/eventhub /var/lib/eventhub /var/log/eventhub
 Environment=PYTHONUNBUFFERED=1
 Environment=EVENTHUB_CONFIG={{ config_path }}
 

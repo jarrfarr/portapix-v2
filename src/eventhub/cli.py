@@ -1600,6 +1600,163 @@ def helper_call(
 
 
 # ---------------------------------------------------------------------------
+# system
+# ---------------------------------------------------------------------------
+
+
+system_app = typer.Typer(help="Metrics, power, logs, timezone and reboot.")
+app.add_typer(system_app, name="system")
+
+
+@system_app.command("metrics")
+def system_metrics(
+    ctx: typer.Context,
+    interval: int = typer.Option(0, "--interval", help="Seconds between samples."),
+    iterations: int = typer.Option(0, "--iterations", help="Stop after N samples."),
+) -> None:
+    """Run the metrics/power daemon (used by systemd)."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.system.service import SystemService
+
+        runtime = state.runtime()
+        service = SystemService(runtime)
+        if interval:
+            runtime.config.system.metrics_interval = interval
+        service.metrics_loop(iterations=iterations or None)
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@system_app.command("status")
+def system_status(ctx: typer.Context, json_output: bool = typer.Option(False, "--json")) -> None:
+    """Show CPU temperature, load, memory, throttling and UPS state."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.system.service import SystemService
+
+        metrics = SystemService(state.runtime()).snapshot()
+        if json_output:
+            console.print_json(json.dumps(metrics, indent=2))
+            return
+        table = Table(title="System")
+        table.add_column("Metric")
+        table.add_column("Value")
+        table.add_row("CPU temperature", f"{metrics.get('cpu_temp_c')} °C")
+        table.add_row("Uptime", f"{(metrics.get('uptime_seconds') or 0) / 3600:.1f} h")
+        table.add_row("Load", str(metrics.get("load")))
+        table.add_row("Memory", str(metrics.get("memory")))
+        table.add_row("Throttled", str(metrics.get("throttled")))
+        table.add_row("UPS", str(metrics.get("ups")))
+        console.print(table)
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@system_app.command("logs")
+def system_logs(
+    ctx: typer.Context,
+    name: str = typer.Argument(...),
+    lines: int = typer.Option(200, "--lines", "-n"),
+) -> None:
+    """Print the journal or EventHub log for one module."""
+
+    state = _state(ctx)
+    try:
+        runtime = state.runtime()
+        registry = ServiceRegistry(runtime)
+        text = ""
+        if registry.is_available(name):
+            service = registry.get(name)
+            if service.systemd_units:
+                text = "\n".join(
+                    runtime.systemd.journal(unit, lines=lines)
+                    for unit in service.systemd_units
+                )
+        if not text:
+            from eventhub.core.logging import tail_file
+
+            text = "\n".join(
+                tail_file(runtime.config.log_dir / "eventhub.log", lines=lines)
+            )
+        console.print(text or "no log output")
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@system_app.command("timezone")
+def system_timezone(ctx: typer.Context, timezone: str = typer.Argument(...)) -> None:
+    """Set the system timezone."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.system.service import SystemService
+
+        result = SystemService(state.runtime()).set_timezone(timezone)
+        if not result.ok:
+            _handle_error(EventHubError(result.message))
+        console.print(f"[green]{result.message}[/green]")
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@system_app.command("reboot")
+def system_reboot(ctx: typer.Context, yes: bool = typer.Option(False, "--yes")) -> None:
+    """Reboot the hub."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.system.service import SystemService
+
+        result = SystemService(state.runtime()).reboot(confirm=yes)
+        if not result.ok:
+            _handle_error(EventHubError(result.message))
+        console.print(result.message)
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@system_app.command("shutdown")
+def system_shutdown(ctx: typer.Context, yes: bool = typer.Option(False, "--yes")) -> None:
+    """Shut down the hub."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.system.service import SystemService
+
+        result = SystemService(state.runtime()).shutdown(confirm=yes)
+        if not result.ok:
+            _handle_error(EventHubError(result.message))
+        console.print(result.message)
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@system_app.command("overlay")
+def system_overlay(ctx: typer.Context) -> None:
+    """Show the read-mostly root filesystem toggle status."""
+
+    state = _state(ctx)
+    from eventhub.system.service import SystemService
+
+    console.print_json(json.dumps(SystemService(state.runtime()).overlay_status(), indent=2))
+
+
+# ---------------------------------------------------------------------------
 # placeholders wired up in later phases
 # ---------------------------------------------------------------------------
 
@@ -1711,7 +1868,7 @@ def recovery(
     action: str = typer.Option(
         "status",
         "--action",
-        help="status, reset-admin, reset-hotspot, detect-hardware",
+        help="status, reset-admin, reset-hotspot, detect-hardware, boot-check",
     ),
 ) -> None:
     """Recovery actions for a broken or locked-out hub."""
@@ -1720,12 +1877,22 @@ def recovery(
     try:
         from eventhub.system.recovery import RecoveryManager
 
-        runtime = state.runtime()
-        manager = RecoveryManager(runtime)
-        result = manager.run(action)
+        if action == "boot-check":
+            try:
+                runtime = state.runtime()
+            except ConfigError:
+                runtime = state.runtime_for_install()
+            result = RecoveryManager(runtime).boot_check()
+        else:
+            runtime = state.runtime()
+            result = RecoveryManager(runtime).run(action)
         if not result.ok:
             _handle_error(EventHubError(result.message))
         console.print(result.message)
+        if result.details.get("password"):
+            console.print(f"[yellow]New password: {result.details['password']}[/yellow]")
+            if result.details.get("file"):
+                console.print(f"Written to {result.details['file']}")
     except EventHubError as exc:
         _handle_error(exc)
     finally:

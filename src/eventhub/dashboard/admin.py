@@ -759,6 +759,24 @@ async def system_recovery(
         response = await helper_call(request, helper_action, {})
     except HTTPException as exc:
         return _error("/system", exc)
+    details = response.data if isinstance(response.data, dict) else {}
+    if details.get("password"):
+        overview = (await helper_call(request, "system.overview")).data or {}
+        config = await _config(request)
+        backups = (await helper_call(request, "backup.list")).data or []
+        return render(
+            request,
+            "system.html",
+            page="system",
+            overview=overview,
+            config=config,
+            backups=backups,
+            log_name="",
+            log_text="",
+            recovery_result=details,
+            ok=response.message,
+            error="",
+        )
     return flash_redirect("/system", ok=response.message)
 
 

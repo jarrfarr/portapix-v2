@@ -10,7 +10,6 @@ from __future__ import annotations
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 from eventhub.core.config import AppConfig, config_yaml, merge_config
@@ -257,89 +256,9 @@ class ActionDispatcher:
         return _ok(data)
 
     def _system_metrics(self) -> dict[str, Any]:
-        fs = self.runtime.fs
-        metrics: dict[str, Any] = {}
-        try:
-            raw = fs.read_text("/sys/class/thermal/thermal_zone0/temp")
-            metrics["cpu_temp_c"] = round(int(raw.strip()) / 1000.0, 1)
-        except (OSError, ValueError):
-            metrics["cpu_temp_c"] = None
-        try:
-            uptime = float(fs.read_text("/proc/uptime").split()[0])
-            metrics["uptime_seconds"] = int(uptime)
-        except (OSError, ValueError, IndexError):
-            metrics["uptime_seconds"] = None
-        try:
-            parts = fs.read_text("/proc/loadavg").split()
-            metrics["load"] = [float(parts[0]), float(parts[1]), float(parts[2])]
-        except (OSError, ValueError, IndexError):
-            metrics["load"] = None
-        try:
-            meminfo = {}
-            for line in fs.read_text("/proc/meminfo").splitlines():
-                key, value = line.split(":", 1)
-                meminfo[key] = int(value.strip().split()[0]) * 1024
-            total = meminfo.get("MemTotal", 0)
-            available = meminfo.get("MemAvailable", 0)
-            metrics["memory"] = {
-                "total_bytes": total,
-                "available_bytes": available,
-                "used_percent": round((total - available) * 100 / total, 1)
-                if total
-                else None,
-            }
-        except (OSError, ValueError):
-            metrics["memory"] = None
-        if self.runtime.runner.which("vcgencmd") is not None:
-            result = self.runtime.runner.run(["vcgencmd", "get_throttled"], timeout=5)
-            if result.ok and "=" in result.stdout:
-                try:
-                    value = int(result.stdout.strip().split("=")[1], 16)
-                    metrics["throttled"] = {
-                        "raw": hex(value),
-                        "undervoltage": bool(value & 0x1),
-                        "frequency_capped": bool(value & 0x2),
-                        "throttled": bool(value & 0x4),
-                        "soft_temperature_limit": bool(value & 0x8),
-                    }
-                except ValueError:
-                    metrics["throttled"] = None
-            else:
-                metrics["throttled"] = None
-        else:
-            metrics["throttled"] = None
-        metrics["ups"] = self._ups_metrics()
-        return metrics
+        from eventhub.core.metrics import collect_metrics
 
-    def _ups_metrics(self) -> list[dict[str, Any]]:
-        fs = self.runtime.fs
-        result: list[dict[str, Any]] = []
-        base = Path("/sys/class/power_supply")
-        try:
-            names = fs.listdir(base)
-        except OSError:
-            return result
-        for name in names:
-            path = base / name
-            try:
-                capacity = fs.read_text(path / "capacity").strip()
-            except (OSError, FileNotFoundError):
-                continue
-            result.append(
-                {
-                    "name": name,
-                    "capacity_percent": int(capacity),
-                    "status": self._read(fs, path / "status"),
-                }
-            )
-        return result
-
-    @staticmethod
-    def _read(fs: Any, path: Path) -> str:
-        try:
-            return fs.read_text(path).strip()
-        except (OSError, FileNotFoundError):
-            return ""
+        return collect_metrics(self.runtime)
 
     # -- service lifecycle --------------------------------------------
     def service_start(self, payload: Mapping[str, Any]) -> HelperResponse:
