@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "eventhub"
-version = "0.1.0"
+version = "0.2.0"
 description = "Portable Raspberry Pi NAS and transfer hub for event photo/video shoots"
 readme = "README.md"
 requires-python = ">=3.11"

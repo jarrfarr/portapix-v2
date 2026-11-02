@@ -103,6 +103,8 @@ fi
 "${VENV}/bin/pip" install --upgrade pip >/dev/null
 log "installing EventHub (this can take a few minutes on a Pi)"
 "${VENV}/bin/pip" install --upgrade "${SRC}[copyparty]"
+# Force replacement even when the version string happens to be unchanged.
+"${VENV}/bin/pip" install --force-reinstall --no-deps "${SRC}[copyparty]"
 ln -sfn "${VENV}/bin/eventhub" /usr/local/bin/eventhub
 ok "EventHub installed"
 
