@@ -44,11 +44,13 @@ async def _config(request: Request) -> dict[str, Any]:
 async def users_page(request: Request) -> Any:
     require_admin(request)
     response = await helper_call(request, "user.list")
+    groups = await helper_call(request, "group.list")
     return render(
         request,
         "users.html",
         page="users",
         users=response.data or [],
+        groups=groups.data or [],
         roles=ROLES,
         ok=request.query_params.get("ok", ""),
         error=request.query_params.get("error", ""),
@@ -138,6 +140,54 @@ async def users_delete(
     return flash_redirect("/users", ok="user deleted")
 
 
+@router.post("/groups")
+async def groups_create(
+    request: Request,
+    name: str = Form(""),
+    description: str = Form(""),
+    csrf_token: str = Form(""),
+) -> Any:
+    verify_csrf(request, csrf_token)
+    try:
+        await helper_call(
+            request, "group.create", {"name": name, "description": description}
+        )
+    except HTTPException as exc:
+        return _error("/users", exc)
+    return flash_redirect("/users", ok=f"created group {name}")
+
+
+@router.post("/groups/{group_id}/delete")
+async def groups_delete(
+    request: Request, group_id: int, csrf_token: str = Form("")
+) -> Any:
+    verify_csrf(request, csrf_token)
+    try:
+        await helper_call(request, "group.delete", {"group_id": group_id})
+    except HTTPException as exc:
+        return _error("/users", exc)
+    return flash_redirect("/users", ok="group deleted")
+
+
+@router.post("/groups/{group_id}/members")
+async def groups_members(
+    request: Request,
+    group_id: int,
+    user_id: int = Form(0),
+    action: str = Form("add"),
+    csrf_token: str = Form(""),
+) -> Any:
+    verify_csrf(request, csrf_token)
+    helper_action = "group.add" if action == "add" else "group.remove"
+    try:
+        await helper_call(
+            request, helper_action, {"group_id": group_id, "user_id": user_id}
+        )
+    except HTTPException as exc:
+        return _error("/users", exc)
+    return flash_redirect("/users", ok=f"{action}ed group member")
+
+
 @router.post("/users/guest-link")
 async def users_guest_link(
     request: Request,
@@ -160,6 +210,7 @@ async def users_guest_link(
             },
         )
         users_response = await helper_call(request, "user.list")
+        groups_response = await helper_call(request, "group.list")
     except HTTPException as exc:
         return _error("/users", exc)
     return render(
@@ -167,6 +218,7 @@ async def users_guest_link(
         "users.html",
         page="users",
         users=users_response.data or [],
+        groups=groups_response.data or [],
         roles=ROLES,
         guest_link=response.data,
         ok="guest link created",

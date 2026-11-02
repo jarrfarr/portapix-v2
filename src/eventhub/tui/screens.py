@@ -145,6 +145,7 @@ class ModulesScreen(BaseScreen):
                 yield Button("Stop", id="stop")
                 yield Button("Restart", id="restart")
                 yield Button("Reinstall", id="reinstall", variant="warning")
+                yield Button("Remove", id="remove", variant="error")
                 yield Button("Refresh", id="refresh")
                 yield Button("Back", id="back")
         yield Footer()
@@ -200,6 +201,24 @@ class ModulesScreen(BaseScreen):
             result = self.hub.controller.toggle_module(name, button == "enable")
         elif button == "reinstall":
             result = self.hub.controller.reinstall_module(name)
+        elif button == "remove":
+
+            def confirmed(value: bool | None) -> None:
+                if value:
+                    outcome = self.hub.controller.remove_module(name)
+                    self._message(outcome.message, error=not outcome.ok)
+                    self._refresh()
+
+            self.app.push_screen(
+                ConfirmScreen(
+                    f"Remove {name}? Service units are removed, but packages and "
+                    "event data are kept.",
+                    confirm_label="Remove",
+                    danger=True,
+                ),
+                confirmed,
+            )
+            return
         else:
             result = self.hub.controller.module_action(name, button)
         self._message(result.message, error=not result.ok)
@@ -308,12 +327,30 @@ class ConfigureScreen(BaseScreen):
                 value=self.hub.controller.config.hotspot.hidden,
                 id="cfg-hidden",
             )
+            yield Static("Storage drive UUID (blank = fallback path)", classes="field-label")
+            yield Input(
+                value=self.hub.controller.config.storage.drive.uuid,
+                id="cfg-drive-uuid",
+            )
+            yield Static(
+                f"Dashboard: {self.hub.controller.dashboard_url()}",
+                classes="muted",
+            )
+            yield Static("", id="cfg-qr", classes="qr")
             yield Static("", id="cfg-message")
             with Horizontal(classes="buttons"):
                 yield Button("Save", id="save", variant="primary")
                 yield Button("Save & apply", id="apply", variant="success")
                 yield Button("Back", id="back")
         yield Footer()
+
+    def on_mount(self) -> None:
+        try:
+            self.query_one("#cfg-qr", Static).update(
+                self.hub.controller.dashboard_qr()
+            )
+        except Exception:
+            self.query_one("#cfg-qr", Static).update("QR unavailable")
 
     def _interface_options(self) -> list[tuple[str, str]]:
         try:
@@ -340,6 +377,11 @@ class ConfigureScreen(BaseScreen):
             return
         patch: dict[str, Any] = {
             "roles": {},
+            "storage": {
+                "drive": {
+                    "uuid": self.query_one("#cfg-drive-uuid", Input).value.strip()
+                }
+            },
             "hotspot": {
                 "ssid": self.query_one("#cfg-ssid", Input).value.strip(),
                 "password": self.query_one("#cfg-password", Input).value,

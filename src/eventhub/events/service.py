@@ -331,7 +331,31 @@ class EventsService(ServiceModule):
             user = "anonymous"
         target = self.event_dir(event.slug) / "ingest" / user
         self.runtime.fs.mkdir(target, mode=0o770)
+        self._check_free_space()
         return target
+
+    def _check_free_space(self) -> None:
+        minimum = self.config.storage.minimum_free_gb
+        try:
+            stat = self.runtime.fs.statvfs(self.events_root())
+        except OSError:
+            return
+        free_gb = stat.available_bytes / (1024**3)
+        if minimum and free_gb < minimum:
+            raise ConflictError(
+                f"only {free_gb:.1f} GiB free; event storage requires at least "
+                f"{minimum} GiB before ingesting"
+            )
+        if stat.used_percent >= self.config.storage.warn_percent:
+            self.runtime.bus.emit(
+                "storage.space_warning",
+                {
+                    "used_percent": stat.used_percent,
+                    "free_bytes": stat.available_bytes,
+                    "critical": stat.used_percent >= self.config.storage.critical_percent,
+                },
+                source="events",
+            )
 
     def size_bytes(self, slug: str) -> int:
         event = self.get_event(slug)

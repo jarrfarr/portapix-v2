@@ -286,6 +286,48 @@ class NetworkService(ServiceModule):
                 )
         return clients
 
+    def addresses(self) -> dict[str, Any]:
+        """Return interface addresses and the current default gateway."""
+
+        roles = self.roles()
+        result: dict[str, Any] = {
+            "interfaces": {},
+            "gateway": "",
+            "default_route": "",
+        }
+        if self.runtime.runner.which("ip") is None:
+            return result
+        addresses = self.runtime.runner.run(["ip", "-j", "addr", "show"], timeout=10)
+        if addresses.ok and addresses.stdout.strip():
+            try:
+                payload = json.loads(addresses.stdout)
+            except json.JSONDecodeError:
+                payload = []
+            for iface in payload if isinstance(payload, list) else []:
+                name = str(iface.get("ifname", ""))
+                if name not in {roles.ap, roles.wan, roles.lan, roles.airdrop}:
+                    continue
+                values = []
+                for info in iface.get("addr_info", []):
+                    local = info.get("local")
+                    if local:
+                        values.append(
+                            f"{local}/{info.get('prefixlen', '')}".rstrip("/")
+                        )
+                if values:
+                    result["interfaces"][name] = values
+        routes = self.runtime.runner.run(["ip", "-j", "route", "show", "default"], timeout=10)
+        if routes.ok and routes.stdout.strip():
+            try:
+                payload = json.loads(routes.stdout)
+            except json.JSONDecodeError:
+                payload = []
+            if isinstance(payload, list) and payload:
+                route = payload[0]
+                result["gateway"] = str(route.get("gateway", ""))
+                result["default_route"] = f"{route.get('dev', '')} via {route.get('gateway', '')}"
+        return result
+
     def monitor(self, interval: int | None = None, iterations: int | None = None) -> None:
         """Long-running failover loop used by eventhub-network.service."""
 

@@ -480,6 +480,7 @@ def network_status(ctx: typer.Context, json_output: bool = typer.Option(False, "
             "roles": roles.as_dict(),
             "uplink": uplink.as_dict(),
             "wired_clients": service.wired_clients(),
+            "addresses": service.addresses(),
         }
         if json_output:
             console.print_json(json.dumps(payload, indent=2))
@@ -1315,6 +1316,102 @@ def users_groups(ctx: typer.Context) -> None:
         for group in groups:
             table.add_row(group.name, ", ".join(group.members))
         console.print(table)
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@users_app.command("group-create")
+def users_group_create(
+    ctx: typer.Context,
+    name: str = typer.Argument(...),
+    description: str = typer.Option("", "--description"),
+) -> None:
+    """Create a group."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.users.service import UsersService
+
+        group = UsersService(state.runtime()).create_group(name, description)
+        console.print(f"[green]created group {group.name}[/green]")
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@users_app.command("group-add")
+def users_group_add(
+    ctx: typer.Context,
+    username: str = typer.Argument(...),
+    group_name: str = typer.Argument(...),
+) -> None:
+    """Add a user to a group."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.users.service import UsersService
+
+        service = UsersService(state.runtime())
+        user = _resolve_user(service, username)
+        group = next(
+            (item for item in service.list_groups() if item.name == group_name), None
+        )
+        if group is None:
+            _handle_error(EventHubError(f"group not found: {group_name}"))
+        result = service.add_to_group(user.id, group.id)
+        console.print(f"[green]{result.message}[/green]")
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@users_app.command("group-remove")
+def users_group_remove(
+    ctx: typer.Context,
+    username: str = typer.Argument(...),
+    group_name: str = typer.Argument(...),
+) -> None:
+    """Remove a user from a group."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.users.service import UsersService
+
+        service = UsersService(state.runtime())
+        user = _resolve_user(service, username)
+        group = next(
+            (item for item in service.list_groups() if item.name == group_name), None
+        )
+        if group is None:
+            _handle_error(EventHubError(f"group not found: {group_name}"))
+        result = service.remove_from_group(user.id, group.id)
+        console.print(f"[green]{result.message}[/green]")
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@users_app.command("group-delete")
+def users_group_delete(ctx: typer.Context, group_name: str = typer.Argument(...)) -> None:
+    """Delete a group."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.users.service import UsersService
+
+        service = UsersService(state.runtime())
+        group = next(
+            (item for item in service.list_groups() if item.name == group_name), None
+        )
+        if group is None:
+            _handle_error(EventHubError(f"group not found: {group_name}"))
+        result = service.delete_group(group.id)
+        console.print(f"[green]{result.message}[/green]")
     except EventHubError as exc:
         _handle_error(exc)
     finally:

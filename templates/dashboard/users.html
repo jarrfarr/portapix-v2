@@ -68,6 +68,38 @@
 </div>
 
 <div class="card">
+  <h2>Groups</h2>
+  <table>
+    <thead><tr><th>Group</th><th>Members</th><th>Membership</th><th></th></tr></thead>
+    <tbody>
+    {% for group in groups %}
+    <tr>
+      <td><strong>{{ group.name }}</strong><br><span class="muted">{{ group.description }}</span></td>
+      <td>{{ group.members|join(', ') or '-' }}</td>
+      <td>
+        <form method="post" action="/groups/{{ group.id }}/members" class="actions">
+          <input type="hidden" name="csrf_token" value="{{ csrf }}">
+          <select name="user_id">{% for user in users %}<option value="{{ user.id }}">{{ user.username }}</option>{% endfor %}</select>
+          <select name="action"><option value="add">add</option><option value="remove">remove</option></select>
+          <button class="small" type="submit">Apply</button>
+        </form>
+      </td>
+      <td><form method="post" action="/groups/{{ group.id }}/delete" onsubmit="return confirm('Delete group {{ group.name }}?')"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="small danger" type="submit">Delete</button></form></td>
+    </tr>
+    {% else %}<tr><td colspan="4" class="muted">No groups yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  <form method="post" action="/groups" style="margin-top:10px">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <div class="row">
+      <div><label>Name</label><input name="name" pattern="[a-z_][a-z0-9_-]{1,31}" required></div>
+      <div><label>Description</label><input name="description"></div>
+    </div>
+    <button type="submit">Create group</button>
+  </form>
+</div>
+
+<div class="card">
   <h2>Guest link</h2>
   <form method="post" action="/users/guest-link">
     <input type="hidden" name="csrf_token" value="{{ csrf }}">

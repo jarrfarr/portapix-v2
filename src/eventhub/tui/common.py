@@ -169,7 +169,7 @@ class SummaryScreen(BaseScreen):
         warnings = payload.get("warnings") or ()
         lines = [
             f"Dashboard: [bold]{self.hub.controller.dashboard_url()}[/bold]",
-            "Wifi: [bold]EventHub[/bold]",
+            f"Wifi: [bold]{self.hub.controller.config.hotspot.ssid}[/bold]",
             "Users are managed from the dashboard.",
         ]
         if password:

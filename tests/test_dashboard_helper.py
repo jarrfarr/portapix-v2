@@ -191,6 +191,7 @@ def test_users_page_and_pages_render(tmp_path: Path) -> None:
             }
         ],
         "event.list": {"active": None, "events": [], "matrix": []},
+        "group.list": [],
         "config.get": {
             "hotspot": {
                 "ssid": "TestHub",
@@ -390,3 +391,35 @@ def test_helper_server_client_roundtrip(tmp_path: Path) -> None:
             await task
 
     asyncio.run(run())
+
+
+
+def test_dispatcher_group_actions(tmp_path: Path) -> None:
+    runtime = make_runtime(tmp_path)
+    runtime.config.fileserver_smb.enabled = False
+    runtime.config.fileserver_copyparty.enabled = False
+    dispatcher = ActionDispatcher(runtime)
+    user = dispatcher.dispatch(
+        "user.create",
+        {
+            "username": "grouper",
+            "password": "grouper-password-123",
+            "role": "viewer",
+            "must_change_password": False,
+        },
+    )
+    assert user.ok
+    created = dispatcher.dispatch(
+        "group.create", {"name": "photographers", "description": "crew"}
+    )
+    assert created.ok, created.message
+    group_id = created.data["id"]
+    assert dispatcher.dispatch(
+        "group.add", {"group_id": group_id, "user_id": user.data["id"]}
+    ).ok
+    listing = dispatcher.dispatch("group.list", {})
+    assert listing.data[0]["members"] == ["grouper"]
+    assert dispatcher.dispatch(
+        "group.remove", {"group_id": group_id, "user_id": user.data["id"]}
+    ).ok
+    assert dispatcher.dispatch("group.delete", {"group_id": group_id}).ok

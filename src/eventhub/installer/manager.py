@@ -272,6 +272,49 @@ class Installer:
         context.log("ok", f"reinstalled {name}")
         return outcome if outcome.ok else ActionResult.success(f"{name} reinstalled")
 
+    # -- module removal -----------------------------------------------
+    def remove_module(self, name: str) -> ActionResult:
+        """Disable a module, stop it and remove EventHub-owned unit files.
+
+        System packages and user data are left in place; this is the safe
+        "remove the service" action behind the TUI Modules screen.
+        """
+
+        if not self.runtime.privileged:
+            return ActionResult.failure("removing a module requires root")
+        registry = ServiceRegistry(self.runtime)
+        if not registry.is_available(name):
+            return ActionResult.failure(f"module not available: {name}")
+        service = registry.get(name)
+        try:
+            service.stop()
+        except Exception:
+            self.log.warning("could not stop %s", name)
+        distro = detect_distro(self.runtime.fs)
+        for unit in unit_names([name], distro):
+            self.runtime.systemd.disable(unit)
+            if unit.startswith("eventhub-"):
+                self.runtime.fs.remove(Path("/etc/systemd/system") / unit, missing_ok=True)
+        self.runtime.systemd.daemon_reload()
+        try:
+            config = merge_config(
+                self.runtime.config, {service.config_key: {"enabled": False}}
+            )
+            self.save_config(config)
+        except ConfigError as exc:
+            return ActionResult.failure(str(exc))
+        self.runtime.db.audit("module.remove", target=name)
+        return ActionResult.success(f"removed {name} (packages and data kept)")
+
+    def save_config(self, config: object) -> None:
+        from eventhub.core.config import AppConfig, config_yaml
+
+        assert isinstance(config, AppConfig)
+        self.runtime.fs.atomic_write(
+            self.runtime.config_path, config_yaml(config), mode=0o600
+        )
+        self.runtime.config = config
+
     # -- update --------------------------------------------------------
     def _repo_path(self) -> Path | None:
         candidates = [

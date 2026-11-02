@@ -260,3 +260,23 @@ def test_hotspot_status_includes_clients(tmp_path: Path) -> None:
     status = HotspotService(runtime).status()
     assert status.name == "hotspot"
     assert status.healthy in {Health.UNKNOWN, Health.HEALTHY, Health.UNHEALTHY}
+
+
+
+def test_network_addresses_and_gateway(tmp_path: Path) -> None:
+    runtime = network_runtime(tmp_path)
+    runtime.runner.responses["ip -j addr show"] = CommandResult(
+        ("ip",),
+        0,
+        stdout=(
+            '[{"ifname":"wlan-test","addr_info":[{"local":"10.42.0.1","prefixlen":24}]},'
+            '{"ifname":"eth-wan","addr_info":[{"local":"192.168.1.20","prefixlen":24}]}]'
+        ),
+    )
+    runtime.runner.responses["ip -j route show default"] = CommandResult(
+        ("ip",), 0, stdout='[{"gateway":"192.168.1.1","dev":"eth-wan"}]'
+    )
+    info = NetworkService(runtime).addresses()
+    assert info["interfaces"]["wlan-test"] == ["10.42.0.1/24"]
+    assert info["gateway"] == "192.168.1.1"
+    assert info["default_route"] == "eth-wan via 192.168.1.1"

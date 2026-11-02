@@ -70,6 +70,11 @@ class ActionDispatcher:
             "user.delete": self.user_delete,
             "user.password": self.user_password,
             "user.guest_link": self.user_guest_link,
+            "group.list": self.group_list,
+            "group.create": self.group_create,
+            "group.delete": self.group_delete,
+            "group.add": self.group_add,
+            "group.remove": self.group_remove,
             "event.list": self.event_list,
             "event.create": self.event_create,
             "event.activate": self.event_activate,
@@ -382,6 +387,41 @@ class ActionDispatcher:
             }
         )
 
+    def group_list(self, payload: Mapping[str, Any]) -> HelperResponse:
+        from eventhub.users.service import UsersService
+
+        return _ok([group.as_dict() for group in UsersService(self.runtime).list_groups()])
+
+    def group_create(self, payload: Mapping[str, Any]) -> HelperResponse:
+        from eventhub.users.service import UsersService
+
+        group = UsersService(self.runtime).create_group(
+            str(payload.get("name", "")), str(payload.get("description", ""))
+        )
+        return _ok(group.as_dict(), f"created group {group.name}")
+
+    def group_delete(self, payload: Mapping[str, Any]) -> HelperResponse:
+        from eventhub.users.service import UsersService
+
+        result = UsersService(self.runtime).delete_group(int(payload.get("group_id", 0)))
+        return HelperResponse(result.ok, result.message)
+
+    def group_add(self, payload: Mapping[str, Any]) -> HelperResponse:
+        from eventhub.users.service import UsersService
+
+        result = UsersService(self.runtime).add_to_group(
+            int(payload.get("user_id", 0)), int(payload.get("group_id", 0))
+        )
+        return HelperResponse(result.ok, result.message)
+
+    def group_remove(self, payload: Mapping[str, Any]) -> HelperResponse:
+        from eventhub.users.service import UsersService
+
+        result = UsersService(self.runtime).remove_from_group(
+            int(payload.get("user_id", 0)), int(payload.get("group_id", 0))
+        )
+        return HelperResponse(result.ok, result.message)
+
     # -- events --------------------------------------------------------
     def event_list(self, payload: Mapping[str, Any]) -> HelperResponse:
         from eventhub.events.service import EventsService
@@ -494,6 +534,7 @@ class ActionDispatcher:
                 "roles": service.roles().as_dict(),
                 "uplink": service.uplink_state().as_dict(),
                 "wired_clients": service.wired_clients(),
+                "addresses": service.addresses(),
             }
         )
 

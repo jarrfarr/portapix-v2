@@ -5,7 +5,7 @@
 `pytest` runs entirely on a laptop with fake subprocess, filesystem, systemd,
 clock, network and hardware adapters.
 
-- 175 tests pass (`ruff check .` and `mypy` also pass).
+- 178 tests pass (`ruff check .` and `mypy` also pass).
 - Core: config validation/generated secrets/YAML round-trip, SQLite migrations
   and foreign keys, audit/settings/sessions, event bus, apply engine success,
   dry-run, validation/render failure, snapshot rollback, snapshot restore, CLI

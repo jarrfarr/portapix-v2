@@ -226,6 +226,9 @@ class TuiController:
     def reinstall_module(self, name: str) -> ActionResult:
         return Installer(self.runtime).reinstall_module(name)
 
+    def remove_module(self, name: str) -> ActionResult:
+        return Installer(self.runtime).remove_module(name)
+
     # -- install / update ---------------------------------------------
     def install(
         self,
@@ -372,3 +375,6 @@ class TuiController:
                 config.hotspot.hidden,
             )
         )
+
+    def dashboard_qr(self) -> str:
+        return qr_ascii(self.dashboard_url())

@@ -267,3 +267,15 @@ def test_events_allowed_once_storage_mounted(tmp_path: Path) -> None:
     event = service.create_event("Mounted", event_date="2026-01-01")
     assert str(event.path).startswith(str(mount))
     assert fs.is_dir(event.path)
+
+
+
+def test_ingest_refuses_when_free_space_below_minimum(tmp_path: Path) -> None:
+    runtime = event_runtime(tmp_path)
+    service = EventsService(runtime)
+    service.create_event("Shoot", event_date="2026-03-03", activate=True)
+    runtime.fs.total_bytes = 10 * 1024**3
+    runtime.fs.free_bytes = 1 * 1024**3
+    runtime.config.storage.minimum_free_gb = 2
+    with pytest.raises(ConflictError):
+        service.ingest_target("alice")

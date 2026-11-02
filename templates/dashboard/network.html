@@ -8,6 +8,15 @@
   <div class="card metric"><div class="label">Uplink</div><div class="value {{ 'ok' if uplink.get('online') else 'warn' }}">{{ uplink.get('kind', 'offline') }}</div><div class="muted">{{ uplink.get('interface', '') }} · {{ uplink.get('detail', '') }}</div></div>
   <div class="card metric"><div class="label">Roles</div><div class="value" style="font-size:1rem">{{ status.get('roles', {}) }}</div></div>
   <div class="card metric"><div class="label">Wired clients</div><div class="value">{{ status.get('wired_clients', [])|length }}</div></div>
+  <div class="card metric"><div class="label">Gateway</div><div class="value" style="font-size:1rem">{{ status.get('addresses', {}).get('gateway') or 'none' }}</div><div class="muted">{{ status.get('addresses', {}).get('default_route', '') }}</div></div>
+</div>
+
+<div class="card">
+  <h2>Addresses</h2>
+  {% set addrs = status.get('addresses', {}).get('interfaces', {}) %}
+  <table><thead><tr><th>Interface</th><th>Addresses</th></tr></thead><tbody>
+    {% for iface, values in addrs.items() %}<tr><td>{{ iface }}</td><td class="mono">{{ values|join(', ') }}</td></tr>{% endfor %}
+  </tbody></table>
 </div>
 
 <div class="card">

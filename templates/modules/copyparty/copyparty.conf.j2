@@ -11,6 +11,9 @@
   th-maxage: {{ thumbnail_age }}
   ah-alg: argon2,3,256,4,19
   ah-salt: {{ salt }}
+{% if minimum_free_gb %}
+  df: {{ minimum_free_gb }}
+{% endif %}
 {% if base_url and base_url != '/' %}
   rp-loc: {{ base_url }}
 {% endif %}

@@ -243,6 +243,7 @@ class CopypartyService(ServiceModule):
             archive_read_only=config.events.archive_is_read_only,
             extra_volumes=self._extra_volumes(),
             inbox_dir=str(config.ingest_root),
+            minimum_free_gb=config.storage.minimum_free_gb,
         )
         return [
             RenderedFile(
