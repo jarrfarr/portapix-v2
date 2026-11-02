@@ -225,9 +225,11 @@ class Installer:
         )
         return InstallResult(
             True,
-            "EventHub is installed and running",
+            "dry run complete; nothing was changed"
+            if dry_run
+            else "EventHub is installed and running",
             tuple(ctx.results),
-            admin_password=ctx.admin_password,
+            admin_password=None if dry_run else ctx.admin_password,
             warnings=tuple(warnings),
             dry_run=dry_run,
         )

@@ -62,6 +62,7 @@ def test_install_dry_run_changes_nothing(tmp_path: Path) -> None:
     result = Installer(runtime).install(dry_run=True)
     assert result.ok, result.message
     assert result.dry_run
+    assert result.admin_password is None
     assert not fs.exists(runtime.config_path)
     assert not fs.exists("/etc/systemd/system/eventhub-helper.service")
 
