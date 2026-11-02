@@ -1,6 +1,6 @@
 """Thin TUI controller.
 
-The Textual screens contain no business logic: they call these methods, which
+The terminal menus contain no business logic: they call these methods, which
 in turn call the installer, registry, backup manager and system module.
 """
 
@@ -236,6 +236,8 @@ class TuiController:
         answers: Mapping[str, Any] | None = None,
         progress: Progress | None = None,
         cancel: threading.Event | None = None,
+        admin_username: str | None = None,
+        admin_password: str | None = None,
     ) -> OpResult:
         if not self.privileged and not self.dry_run:
             return OpResult(False, "install requires root (run: sudo eventhub)")
@@ -260,6 +262,8 @@ class TuiController:
                     f"[{state}] {step}: {message}"
                 ),
                 cancel=(lambda: bool(cancel and cancel.is_set())),
+                admin_username=admin_username,
+                admin_password=admin_password,
             )
         except EventHubError as exc:
             return OpResult(False, str(exc))
@@ -270,6 +274,7 @@ class TuiController:
             result.message,
             payload={
                 "result": result,
+                "admin_username": admin_username or "admin",
                 "admin_password": result.admin_password,
                 "warnings": result.warnings,
             },

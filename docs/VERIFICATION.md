@@ -13,7 +13,7 @@ clock, network and hardware adapters.
 - Installer: Debian/unknown distro detection, package mapping, every install
   step with fakes, idempotent install, answers file, update check, uninstall
   modes and typed full-wipe confirmation, backup/restore, unit rendering.
-- TUI: first-boot wizard vs installed menu, wizard navigation, modules table,
+- TUI: first-boot wizard vs installed menu, wizard navigation, main menu, modules menu,
   status/logs, configure, backup/recovery/uninstall rendering, QR encoding.
 - Network/hotspot: role resolution, nftables/sysctl rendering, sharing toggles,
   apply/stop/health, uplink selection/probe failure, iw scan parsing,

@@ -25,7 +25,7 @@ From a checkout:
 sudo ./bootstrap.sh
 ```
 
-The installer opens a Textual TUI.  Non-interactive:
+The installer opens a raspi-config-style terminal menu.  Non-interactive:
 
 ```sh
 sudo eventhub install --yes
@@ -112,7 +112,7 @@ Pi, root or systemd.
 ## Verification
 
 The unit suite covers configuration, apply/rollback, every module with fake
-adapters, installer steps, TUI screens, dashboard login/pages/CSRF, helper
+adapters, installer steps, TUI menus, dashboard login/pages/CSRF, helper
 socket round-trip and recovery/self-test.  Real wifi radios, AirDrop, SMB
 clients, USB hotplug, formatting, Pi throttling and systemd boot ordering can
 only be verified on the physical hardware; each phase report and

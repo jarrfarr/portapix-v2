@@ -9,7 +9,7 @@ directly.
 flowchart TB
     subgraph Frontends
         CLI[eventhub CLI]
-        TUI[Textual TUI]
+        TUI[Terminal TUI]
         WEB[Dashboard FastAPI]
     end
 

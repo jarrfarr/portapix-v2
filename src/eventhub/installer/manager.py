@@ -149,6 +149,8 @@ class Installer:
         run_selftest: bool = False,
         progress: ProgressCallback | None = None,
         cancel: Callable[[], bool] | None = None,
+        admin_username: str | None = None,
+        admin_password: str | None = None,
     ) -> InstallResult:
         if not self.runtime.privileged and not dry_run:
             return InstallResult(False, "install requires root")
@@ -176,6 +178,10 @@ class Installer:
             config=config,
             progress=progress or (lambda *args: None),
         )
+        if admin_username:
+            ctx.admin_username = admin_username
+        if admin_password:
+            ctx.admin_password = admin_password
         existed, original = self._config_backup()
         warnings: list[str] = []
         steps = standard_steps()

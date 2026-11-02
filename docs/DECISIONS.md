@@ -226,6 +226,17 @@ installer does not rewrite the boot cmdline.  A wrong overlay configuration can
 make an unattended hub unbootable; the operator must use the distro/Raspberry
 Pi overlay tooling and reboot deliberately.
 
+## 2026-11-02 — TUI is whiptail/raspi-config style, not Textual
+
+The original plan called for Textual.  The operator explicitly asked for a
+simple terminal installer in the style of `raspi-config`, so the TUI now uses
+whiptail/dialog menus over newt, with a numbered plain-text fallback when
+whiptail is unavailable.  This keeps the first-boot experience familiar on
+Raspberry Pi OS, works over SSH/serial, and removes the Textual dependency and
+its full-screen app model.  `bootstrap.sh` and the installer now install
+whiptail/newt.  The TUI remains a thin presentation layer over `TuiController`.
+
+
 
 
 

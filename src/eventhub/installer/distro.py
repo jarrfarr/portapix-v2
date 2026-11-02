@@ -104,6 +104,11 @@ PACKAGE_MAP: dict[str, dict[str, list[str]]] = {
         "fedora": ["python3-pip"],
         "arch": ["python-pip"],
     },
+    "whiptail": {
+        "apt": ["whiptail"],
+        "fedora": ["newt"],
+        "arch": ["libnewt"],
+    },
     "wpasupplicant": {
         "apt": ["wpasupplicant"],
         "fedora": ["wpa_supplicant"],

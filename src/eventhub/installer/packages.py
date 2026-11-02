@@ -10,6 +10,7 @@ BASE_PACKAGES: list[str] = [
     "python3-venv",
     "python3-pip",
     "rsync",
+    "whiptail",
 ]
 
 MODULE_PACKAGES: dict[str, list[str]] = {

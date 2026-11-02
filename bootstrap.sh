@@ -41,13 +41,13 @@ install_minimum() {
             export DEBIAN_FRONTEND=noninteractive
             apt-get update -y
             apt-get install -y --no-install-recommends git curl ca-certificates \
-                python3 python3-venv python3-pip
+                python3 python3-venv python3-pip whiptail
             ;;
         dnf)
-            dnf install -y git curl ca-certificates python3 python3-pip
+            dnf install -y git curl ca-certificates python3 python3-pip newt
             ;;
         pacman)
-            pacman -Sy --noconfirm --needed git curl ca-certificates python python-pip
+            pacman -Sy --noconfirm --needed git curl ca-certificates python python-pip libnewt
             ;;
         *)
             fail "unsupported distribution: install git, curl, python3 and venv support manually"
@@ -107,7 +107,7 @@ ok "EventHub installed"
 NONINTERACTIVE=0
 if [ ! -t 0 ]; then
     if [ -r /dev/tty ]; then
-        # curl | bash: reattach the controlling terminal so Textual works.
+        # curl | bash: reattach the controlling terminal so the TUI works.
         exec </dev/tty
     else
         NONINTERACTIVE=1
