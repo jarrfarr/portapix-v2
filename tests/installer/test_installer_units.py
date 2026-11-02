@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from eventhub.core.templates import templates_dir
 from eventhub.core.types import CommandResult
 from eventhub.installer.distro import (
     PackageManager,
@@ -11,7 +12,7 @@ from eventhub.installer.distro import (
     package_commands,
     resolve_packages,
 )
-from eventhub.installer.units import render_units, templates_dir, unit_names
+from eventhub.installer.units import render_units, unit_names
 from eventhub.network.hardware import detect_hardware
 from tests.support import FakeFileSystem, FakeRunner, make_config, make_runtime
 
@@ -154,7 +155,7 @@ def test_render_all_units(tmp_path: Path) -> None:
         "system",
     ]
     rendered = render_units(config, modules)
-    assert len(rendered) == len(modules)
+    assert len(rendered) == len(modules) + 1  # hotspot has two units
     for item in rendered:
         assert item.path.parent == Path("/etc/systemd/system")
         assert "{{" not in item.content
@@ -163,7 +164,8 @@ def test_render_all_units(tmp_path: Path) -> None:
     assert templates_dir() is not None
     names = unit_names(modules)
     assert "eventhub-helper.service" in names
-    assert "hostapd.service" in names
+    assert "eventhub-hostapd.service" in names
+    assert "eventhub-dnsmasq.service" in names
 
 
 def test_unit_names_arch_smb(tmp_path: Path) -> None:

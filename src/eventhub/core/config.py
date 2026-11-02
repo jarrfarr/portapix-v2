@@ -213,6 +213,7 @@ class NetworkConfig(StrictModel):
     enabled: bool = True
     uplink: Literal["auto", "wan", "wifi", "none"] = "auto"
     internet_sharing: bool = True
+    wifi_client_interface: str = "auto"
     wifi_networks: list[WifiCredential] = Field(default_factory=list)
     connectivity_urls: list[str] = Field(
         default_factory=lambda: [
@@ -227,6 +228,20 @@ class NetworkConfig(StrictModel):
     forward_wan_lan: bool = False
     kick_clients_on_apply: bool = False
     interface_overrides: dict[str, str] = Field(default_factory=dict)
+
+    @field_validator("wifi_client_interface")
+    @classmethod
+    def _wifi_iface(cls, value: str) -> str:
+        if value not in {"auto", "none"} and not _IFACE_RE.match(value):
+            raise ValueError("invalid wifi_client_interface")
+        return value
+
+    @field_validator("nft_table")
+    @classmethod
+    def _nft_table(cls, value: str) -> str:
+        if not re.fullmatch(r"[a-zA-Z][a-zA-Z0-9_-]{0,30}", value):
+            raise ValueError("nft_table must be a simple nftables table name")
+        return value
 
     @field_validator("dns_servers")
     @classmethod

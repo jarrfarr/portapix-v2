@@ -10,26 +10,24 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
-from jinja2 import Environment, FileSystemLoader, StrictUndefined
-
 from eventhub.core.config import AppConfig
+from eventhub.core.templates import render_template
 from eventhub.core.types import RenderedFile
 from eventhub.installer.distro import Distro, PackageManager
 
-# module -> template stem
-UNIT_TEMPLATES: dict[str, str] = {
-    "helper": "eventhub-helper.service.j2",
-    "dashboard": "eventhub-dashboard.service.j2",
-    "fileserver_copyparty": "eventhub-copyparty.service.j2",
-    "airdrop": "eventhub-airdrop.service.j2",
-    "network": "eventhub-network.service.j2",
-    "hotspot": "eventhub-hotspot.service.j2",
-    "system": "eventhub-metrics.service.j2",
+# module -> template stems
+UNIT_TEMPLATES: dict[str, tuple[str, ...]] = {
+    "helper": ("eventhub-helper.service.j2",),
+    "dashboard": ("eventhub-dashboard.service.j2",),
+    "fileserver_copyparty": ("eventhub-copyparty.service.j2",),
+    "airdrop": ("eventhub-airdrop.service.j2",),
+    "network": ("eventhub-network.service.j2",),
+    "hotspot": ("eventhub-hostapd.service.j2", "eventhub-dnsmasq.service.j2"),
+    "system": ("eventhub-metrics.service.j2",),
 }
 
 # module -> units owned by distro packages
 EXTERNAL_UNITS: dict[str, tuple[str, ...]] = {
-    "hotspot": ("hostapd.service", "dnsmasq.service"),
     "fileserver_smb": ("smbd.service",),
     "discovery": ("avahi-daemon.service",),
 }
@@ -42,43 +40,6 @@ class UnitInfo:
     path: Path
     content: str
     external: bool = False
-
-
-def templates_dir() -> Path | None:
-    """Find templates in both editable checkouts and installed wheels."""
-
-    package = Path(__file__).resolve()
-    candidates = [
-        package.parents[2] / "templates",  # src/eventhub/templates
-        package.parents[3] / "templates",  # repo/templates
-    ]
-    for candidate in candidates:
-        if (candidate / "systemd").is_dir():
-            return candidate
-    try:
-        from importlib.resources import files
-
-        resource = files("eventhub").joinpath("templates")
-        path = Path(str(resource))
-        if (path / "systemd").is_dir():
-            return path
-    except (ImportError, ModuleNotFoundError, TypeError):
-        pass
-    return None
-
-
-def _environment() -> Environment:
-    root = templates_dir()
-    if root is None:
-        raise FileNotFoundError("EventHub templates directory not found")
-    return Environment(
-        loader=FileSystemLoader(str(root)),
-        undefined=StrictUndefined,
-        autoescape=False,
-        keep_trailing_newline=True,
-        trim_blocks=True,
-        lstrip_blocks=True,
-    )
 
 
 def _context(config: AppConfig, *, unit_path: Path) -> dict[str, object]:
@@ -110,34 +71,35 @@ def render_units(
     config: AppConfig, modules: Iterable[str], distro: Distro | None = None
 ) -> list[RenderedFile]:
     enabled_modules = set(modules)
-    env = _environment()
     rendered: list[RenderedFile] = []
-    for module, template_name in UNIT_TEMPLATES.items():
+    for module, template_names in UNIT_TEMPLATES.items():
         if module not in enabled_modules:
             continue
-        unit_name = template_name.removesuffix(".j2")
-        target = Path("/etc/systemd/system") / unit_name
-        content = env.get_template(f"systemd/{template_name}").render(
-            **_context(config, unit_path=target)
-        )
-        rendered.append(
-            RenderedFile(
-                path=target,
-                content=content,
-                mode=0o644,
-                owner="root",
-                group="root",
+        for template_name in template_names:
+            unit_name = template_name.removesuffix(".j2")
+            target = Path("/etc/systemd/system") / unit_name
+            content = render_template(
+                f"systemd/{template_name}",
+                **_context(config, unit_path=target),
             )
-        )
+            rendered.append(
+                RenderedFile(
+                    path=target,
+                    content=content,
+                    mode=0o644,
+                    owner="root",
+                    group="root",
+                )
+            )
     return rendered
 
 
 def unit_names(modules: Iterable[str], distro: Distro | None = None) -> list[str]:
     enabled = set(modules)
     names: list[str] = []
-    for module, template_name in UNIT_TEMPLATES.items():
+    for module, template_names in UNIT_TEMPLATES.items():
         if module in enabled:
-            names.append(template_name.removesuffix(".j2"))
+            names.extend(name.removesuffix(".j2") for name in template_names)
     for module, units in EXTERNAL_UNITS.items():
         if module not in enabled:
             continue
@@ -160,12 +122,13 @@ def units_to_enable(
 
 def unit_status_info(config: AppConfig, modules: Iterable[str]) -> list[UnitInfo]:
     rendered = render_units(config, modules)
+    by_name: dict[str, str] = {}
+    for module, template_names in UNIT_TEMPLATES.items():
+        for template_name in template_names:
+            by_name[template_name.removesuffix(".j2")] = module
     return [
         UnitInfo(
-            module=next(
-                (m for m, t in UNIT_TEMPLATES.items() if t.removesuffix(".j2") == item.path.name),
-                "",
-            ),
+            module=by_name.get(item.path.name, ""),
             name=item.path.name,
             path=item.path,
             content=item.content,

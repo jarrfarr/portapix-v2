@@ -1,15 +1,16 @@
 [Unit]
-Description=EventHub network rules and uplink
+Description=EventHub network rules and uplink monitor
 After=network-pre.target
 Before=network.target
 Wants=network-pre.target
 ConditionPathExists={{ config_path }}
 
 [Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart={{ venv }}/bin/eventhub --config {{ config_path }} apply --module network --no-reload
-ExecStop={{ venv }}/bin/eventhub --config {{ config_path }} module network stop
+Type=simple
+ExecStart={{ venv }}/bin/eventhub --config {{ config_path }} network monitor --interval {{ network.connectivity_interval }}
+ExecStop={{ venv }}/bin/eventhub --config {{ config_path }} network stop
+Restart=on-failure
+RestartSec=5
 User=root
 Group=root
 NoNewPrivileges=yes

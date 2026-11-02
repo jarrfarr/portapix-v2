@@ -76,3 +76,23 @@ that are both available in the build and enabled in config.  Distro units
 (hostapd, dnsmasq, smbd, avahi) are enabled but never overwritten.  Unit files
 run the installed venv entry point, never a shell command string.
 
+## 2026-11-02 — EventHub owns hostapd/dnsmasq units
+
+Rather than editing `/etc/default/hostapd` and hoping Debian's unit reads it,
+EventHub installs `eventhub-hostapd.service` and `eventhub-dnsmasq.service`
+that point directly at `/etc/hostapd/eventhub.conf` and
+`/etc/dnsmasq.d/eventhub.conf`.  This works the same on Debian, Fedora and
+Arch.  If the distro's hostapd/dnsmasq units are active, the hotspot module
+stops them first to avoid radio/port conflicts.  Samba and Avahi still use
+their distro units because they have stable, multi-distro configuration paths.
+
+## 2026-11-02 — The network unit is a monitor, not a one-shot
+
+`eventhub-network.service` is a long-running process (`eventhub network
+monitor`) that applies nftables/sysctl at boot, probes the uplink every
+`connectivity_interval` seconds and rewrites rules only when the uplink or
+roles change.  A one-shot unit plus timer would add ordering complexity and a
+second unit to install; a single monitor makes failover observable and keeps
+the dashboard's uplink state fresh.
+
+

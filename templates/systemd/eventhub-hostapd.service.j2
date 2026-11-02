@@ -1,0 +1,21 @@
+[Unit]
+Description=EventHub hostapd access point
+After=network.target eventhub-network.service
+Wants=eventhub-network.service
+ConditionPathExists=/etc/hostapd/eventhub.conf
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/hostapd /etc/hostapd/eventhub.conf
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=3
+User=root
+Group=root
+NoNewPrivileges=yes
+ProtectHome=read-only
+ProtectSystem=full
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

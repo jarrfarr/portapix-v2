@@ -1,0 +1,21 @@
+[Unit]
+Description=EventHub dnsmasq DHCP and DNS
+After=eventhub-hostapd.service
+Requires=eventhub-hostapd.service
+ConditionPathExists=/etc/dnsmasq.d/eventhub.conf
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/dnsmasq --conf-file=/etc/dnsmasq.d/eventhub.conf --no-daemon
+Restart=on-failure
+RestartSec=3
+User=root
+Group=root
+NoNewPrivileges=yes
+ProtectHome=read-only
+ProtectSystem=full
+RuntimeDirectory=eventhub-dnsmasq
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

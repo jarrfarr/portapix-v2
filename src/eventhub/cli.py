@@ -439,6 +439,261 @@ def config_get(ctx: typer.Context, dotted: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# network / hotspot helpers
+# ---------------------------------------------------------------------------
+
+
+network_app = typer.Typer(help="Inspect uplink state, scan wifi and test connectivity.")
+app.add_typer(network_app, name="network")
+
+hotspot_app = typer.Typer(help="Inspect the access point and connected clients.")
+app.add_typer(hotspot_app, name="hotspot")
+
+
+@network_app.command("status")
+def network_status(ctx: typer.Context, json_output: bool = typer.Option(False, "--json")) -> None:
+    """Show resolved interfaces, uplink state and wired clients."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.network.service import NetworkService
+
+        runtime = state.runtime()
+        service = NetworkService(runtime)
+        roles = service.roles()
+        uplink = service.uplink_state()
+        payload = {
+            "roles": roles.as_dict(),
+            "uplink": uplink.as_dict(),
+            "wired_clients": service.wired_clients(),
+        }
+        if json_output:
+            console.print_json(json.dumps(payload, indent=2))
+            return
+        table = Table(title="Network")
+        table.add_column("Item")
+        table.add_column("Value")
+        for role, value in roles.as_dict().items():
+            table.add_row(role, value or "-")
+        table.add_row("uplink", f"{uplink.kind} {uplink.interface} online={uplink.online}")
+        table.add_row("detail", uplink.detail)
+        table.add_row("wired clients", str(len(payload["wired_clients"])))
+        console.print(table)
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@network_app.command("scan")
+def network_scan(
+    ctx: typer.Context,
+    interface: str = typer.Option("", "--interface", "-i"),
+    json_output: bool = typer.Option(False, "--json"),
+) -> None:
+    """Scan for wifi networks on the uplink adapter."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.network.service import NetworkService
+
+        runtime = state.runtime()
+        if not runtime.privileged:
+            _handle_error(EventHubError("wifi scanning requires root"))
+        networks = NetworkService(runtime).scan_wifi(interface)
+        if json_output:
+            console.print_json(
+                json.dumps([network.as_dict() for network in networks], indent=2)
+            )
+            return
+        table = Table(title="Wifi networks")
+        table.add_column("SSID")
+        table.add_column("Signal", justify="right")
+        table.add_column("Security")
+        table.add_column("Channel", justify="right")
+        for network in networks:
+            table.add_row(
+                network.ssid,
+                f"{network.signal_dbm} dBm",
+                network.security,
+                str(network.channel or "-"),
+            )
+        console.print(table)
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@network_app.command("connect")
+def network_connect(
+    ctx: typer.Context,
+    ssid: str = typer.Argument(...),
+    password: str = typer.Option("", "--password", help="Leave empty to prompt."),
+) -> None:
+    """Connect the wifi client uplink and save the network."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.core.config import merge_config
+        from eventhub.network.service import NetworkService
+
+        runtime = state.runtime()
+        if not runtime.privileged:
+            _handle_error(EventHubError("connecting wifi requires root"))
+        if not password:
+            password = typer.prompt("Wifi password", hide_input=True, default="")
+        service = NetworkService(runtime)
+        result = service.connect_wifi(ssid, password)
+        if not result.ok:
+            _handle_error(EventHubError(result.message))
+        config = merge_config(
+            runtime.config,
+            {
+                "network": {
+                    "wifi_networks": [
+                        {
+                            "ssid": existing.ssid,
+                            "password": existing.password.get_secret_value(),
+                            "priority": existing.priority,
+                            "hidden": existing.hidden,
+                        }
+                        for existing in runtime.config.network.wifi_networks
+                        if existing.ssid != ssid
+                    ]
+                    + [{"ssid": ssid, "password": password, "priority": 10}]
+                }
+            },
+        )
+        save_config(config, state.config_path)
+        applied = ServiceRegistry(runtime.with_config(config)).apply(names=["network"])
+        if not applied.ok:
+            _handle_error(EventHubError(applied.message))
+        console.print(f"[green]{result.message}[/green]")
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@network_app.command("test")
+def network_test(ctx: typer.Context) -> None:
+    """Run a connectivity test against the configured URLs."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.network.service import NetworkService
+
+        result = NetworkService(state.runtime()).test_connectivity()
+        if not result.ok:
+            _handle_error(EventHubError(result.message))
+        console.print(f"[green]{result.message}[/green]")
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@network_app.command("monitor")
+def network_monitor(
+    ctx: typer.Context,
+    interval: int = typer.Option(0, "--interval", help="Seconds between checks."),
+    iterations: int = typer.Option(0, "--iterations", help="Stop after N loops (0 = forever)."),
+) -> None:
+    """Run the uplink failover monitor (used by systemd)."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.network.service import NetworkService
+
+        runtime = state.runtime()
+        if not runtime.privileged:
+            _handle_error(EventHubError("network monitor requires root"))
+        NetworkService(runtime).monitor(
+            interval=interval or None, iterations=iterations or None
+        )
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@network_app.command("stop")
+def network_stop(ctx: typer.Context) -> None:
+    """Remove EventHub firewall rules."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.network.service import NetworkService
+
+        result = NetworkService(state.runtime()).stop()
+        if not result.ok:
+            _handle_error(EventHubError(result.message))
+        console.print("[green]network rules removed[/green]")
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@hotspot_app.command("status")
+def hotspot_status(ctx: typer.Context, json_output: bool = typer.Option(False, "--json")) -> None:
+    """Show the AP interface and associated clients."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.hotspot.service import HotspotService
+
+        service = HotspotService(state.runtime())
+        payload = {
+            "interface": service.interface(),
+            "ssid": service.hotspot.ssid,
+            "clients": service.clients(),
+            "status": service.status().as_dict(),
+        }
+        if json_output:
+            console.print_json(json.dumps(payload, indent=2))
+            return
+        console.print(
+            f"[bold]{service.hotspot.ssid}[/bold] on {service.interface() or '-'} · "
+            f"{len(payload['clients'])} client(s)"
+        )
+        table = Table()
+        table.add_column("MAC")
+        table.add_column("Signal")
+        table.add_column("Connected")
+        for client in payload["clients"]:
+            table.add_row(
+                str(client.get("mac", "")),
+                str(client.get("signal", "")),
+                str(client.get("connected_time", "")),
+            )
+        console.print(table)
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@hotspot_app.command("kick")
+def hotspot_kick(ctx: typer.Context, mac: str = typer.Argument(...)) -> None:
+    """Disconnect one wifi client by MAC address."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.hotspot.service import HotspotService
+
+        result = HotspotService(state.runtime()).kick(mac)
+        if not result.ok:
+            _handle_error(EventHubError(result.message))
+        console.print(f"[green]{result.message}[/green]")
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+# ---------------------------------------------------------------------------
 # placeholders wired up in later phases
 # ---------------------------------------------------------------------------
 
