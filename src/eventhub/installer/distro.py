@@ -149,6 +149,16 @@ PACKAGE_MAP: dict[str, dict[str, list[str]]] = {
         "fedora": ["glib2-devel"],
         "arch": ["glib2"],
     },
+    "libdbus-1-dev": {
+        "apt": ["libdbus-1-dev"],
+        "fedora": ["dbus-devel"],
+        "arch": ["dbus"],
+    },
+    "libudev-dev": {
+        "apt": ["libudev-dev"],
+        "fedora": ["systemd-devel"],
+        "arch": ["systemd-libs"],
+    },
     "exfatprogs": {
         "apt": ["exfatprogs"],
         "fedora": ["exfatprogs"],

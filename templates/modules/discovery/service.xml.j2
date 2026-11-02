@@ -1,0 +1,12 @@
+<?xml version="1.0" standalone='no'?>
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<service-group>
+  <name replace-wildcards="yes">{{ service_name }}</name>
+  <service>
+    <type>{{ service_type }}</type>
+    <port>{{ port }}</port>
+{% for record in txt_records %}
+    <txt-record>{{ record }}</txt-record>
+{% endfor %}
+  </service>
+</service-group>

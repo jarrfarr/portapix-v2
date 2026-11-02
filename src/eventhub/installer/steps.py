@@ -351,6 +351,29 @@ class InstallPythonEnvironmentStep(InstallStep):
         return StepResult(self.id, "ok", f"installed from {source}")
 
 
+class BuildAirdropStep(InstallStep):
+    id = "airdrop"
+    title = "Install owly (AirDrop)"
+    description = "Build t4t5/owly from source when no package is present."
+    critical = False
+
+    def run(self, ctx: InstallContext) -> StepResult:
+        if not ctx.config.airdrop.enabled:
+            return StepResult(self.id, "skip", "AirDrop disabled")
+        if ctx.dry_run:
+            return StepResult(self.id, "ok", "would install/build owly")
+        from eventhub.installer.airdrop_build import install_owly
+
+        result = install_owly(ctx.runtime, ctx.config.airdrop)
+        if result.ok:
+            return StepResult(self.id, "ok", result.message)
+        if result.disabled:
+            ctx.config = merge_config(ctx.config, {"airdrop": {"enabled": False}})
+            ctx.log("warn", result.message)
+            return StepResult(self.id, "warn", result.message)
+        return StepResult(self.id, "warn", result.message)
+
+
 class FirstBootAdminStep(InstallStep):
     id = "admin"
     title = "Create the first administrator"
@@ -511,6 +534,7 @@ def standard_steps() -> list[InstallStep]:
         WriteConfigStep(),
         CreateServiceAccountsStep(),
         InstallPackagesStep(),
+        BuildAirdropStep(),
         InstallPythonEnvironmentStep(),
         FirstBootAdminStep(),
         RenderUnitsStep(),

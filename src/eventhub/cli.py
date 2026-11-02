@@ -301,6 +301,15 @@ def module_command(
             from eventhub.installer.manager import Installer
 
             result = Installer(runtime).reinstall_module(name)
+        elif action == "receive" and name == "airdrop":
+            service = registry.get(name)
+            _handle_error_if_missing_airdrop(service)
+            service.receive()  # execs into owly receive
+            return
+        elif action == "doctor" and name == "airdrop":
+            service = registry.get(name)
+            console.print_json(json.dumps(service.doctor(), indent=2))
+            return
         else:
             result = registry.control(name, action)
         if not result.ok:
@@ -317,6 +326,11 @@ def _section_for(registry: ServiceRegistry, name: str) -> str:
         return registry.get(name).config_key
     except EventHubError:
         return name
+
+
+def _handle_error_if_missing_airdrop(service: object) -> None:
+    if not hasattr(service, "receive"):
+        raise EventHubError("this module has no AirDrop receive action")
 
 
 # ---------------------------------------------------------------------------
@@ -1397,6 +1411,109 @@ def copyparty_status(
                 json.dumps(volume["accs"]),
             )
         console.print(table)
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+# ---------------------------------------------------------------------------
+# airdrop / discovery helpers
+# ---------------------------------------------------------------------------
+
+
+airdrop_app = typer.Typer(help="Inspect AirDrop/owly status and the target folder.")
+app.add_typer(airdrop_app, name="airdrop")
+
+discovery_app = typer.Typer(help="Inspect mDNS advertisement.")
+app.add_typer(discovery_app, name="discovery")
+
+
+@airdrop_app.command("status")
+def airdrop_status(ctx: typer.Context, json_output: bool = typer.Option(False, "--json")) -> None:
+    """Show owly units, AWDL interface and receive target."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.airdrop.service import AirdropService
+
+        service = AirdropService(state.runtime())
+        payload = {
+            "interface": service.interface(),
+            "awdl_interface": service.airdrop.awdl_interface,
+            "target": str(service.target_dir()),
+            "health": service.health_check().message,
+            "argv": service.receive_argv(),
+            "status": service.status().as_dict(),
+        }
+        if json_output:
+            console.print_json(json.dumps(payload, indent=2))
+            return
+        for key in ("interface", "awdl_interface", "target", "health"):
+            console.print(f"{key}: {payload[key]}")
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@airdrop_app.command("doctor")
+def airdrop_doctor(ctx: typer.Context) -> None:
+    """Run `owly doctor --json` and print the report."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.airdrop.service import AirdropService
+
+        console.print_json(json.dumps(AirdropService(state.runtime()).doctor(), indent=2))
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@airdrop_app.command("target")
+def airdrop_target(ctx: typer.Context) -> None:
+    """Print the folder received files will land in."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.airdrop.service import AirdropService
+
+        console.print(str(AirdropService(state.runtime()).target_dir()))
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@discovery_app.command("status")
+def discovery_status(
+    ctx: typer.Context, json_output: bool = typer.Option(False, "--json")
+) -> None:
+    """Show the advertised mDNS name and services."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.discovery.service import DiscoveryService
+
+        service = DiscoveryService(state.runtime())
+        config = state.runtime.config
+        payload = {
+            "fqdn": f"{config.discovery.hostname}.{config.discovery.domain}",
+            "interfaces": service.interfaces(),
+            "smb": config.discovery.advertise_smb,
+            "copyparty": config.discovery.advertise_copyparty,
+            "dashboard": config.discovery.advertise_dashboard,
+            "health": service.health_check().message,
+            "status": service.status().as_dict(),
+        }
+        if json_output:
+            console.print_json(json.dumps(payload, indent=2))
+            return
+        for key, value in payload.items():
+            if key not in {"status"}:
+                console.print(f"{key}: {value}")
     except EventHubError as exc:
         _handle_error(exc)
     finally:

@@ -129,6 +129,9 @@ class NetworkService(ServiceModule):
             "smb_enabled": cfg.fileserver_smb.enabled,
             "copyparty_enabled": cfg.fileserver_copyparty.enabled,
             "dashboard_enabled": cfg.dashboard.enabled,
+            "airdrop_enabled": cfg.airdrop.enabled,
+            "awdl_interface": cfg.airdrop.awdl_interface,
+            "airdrop_port": cfg.airdrop.receive_port,
         }
 
     def render(self, config: AppConfig) -> list[RenderedFile]:

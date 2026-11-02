@@ -142,6 +142,29 @@ updates the SMB passdb immediately and returns; the caller (helper/CLI/TUI)
 then re-renders the file-server configs via the registry.  This keeps the
 privilege boundary and the apply/rollback path in one place.
 
+## 2026-11-02 — AirDrop uses t4t5/owly (omdrop-owl renamed)
+
+The upstream project is now `t4t5/owly`, a Rust implementation split into
+`owlyd` (radio) and `owly` (AirDrop CLI).  EventHub pins `v0.4.2`, runs
+`owly radio up` in a root unit and `owly receive` in an unprivileged unit, and
+opens only TCP 8771 on `awdl0`.  v0.4.2 has no arm64 release asset, so the
+installer builds from source and requires Rust 1.88+.  Failure to detect an
+adapter or to build disables AirDrop with an explicit warning; it never fails
+silently.
+
+## 2026-11-02 — Avahi config is generated, not patched
+
+`/etc/avahi/avahi-daemon.conf` is rendered from config and covered by the
+apply snapshot.  Service records are separate XML files, so toggling SMB,
+copyparty or dashboard advertisement removes exactly those files.  Avahi is
+bound to the AP and LAN interfaces by default; WAN is never advertised.
+
+## 2026-11-02 — mDNS and AirDrop use separate interfaces
+
+Avahi advertises on the AP/LAN only.  Owly runs its own mDNS responder on
+`awdl0` for AirDrop; mixing the two would break the AWDL timing/announcements.
+
+
 
 
 

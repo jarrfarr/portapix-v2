@@ -1,27 +1,29 @@
 [Unit]
-Description=EventHub AirDrop receiver (omdrop-owl)
-After=network.target eventhub-network.service eventhub-helper.service
-Wants=eventhub-network.service
+Description=EventHub AirDrop receiver (owly)
+After=network.target eventhub-radio.service eventhub-helper.service
+Requires=eventhub-radio.service
+ConditionPathExists={{ airdrop.owl_binary }}
 ConditionPathExists={{ config_path }}
-ConditionPathExists={{ airdrop.owl_dir }}/owl
 
 [Service]
 Type=simple
-ExecStart={{ venv }}/bin/eventhub --config {{ config_path }} module airdrop run
+ExecStart={{ venv }}/bin/eventhub --config {{ config_path }} module airdrop receive
 Restart=on-failure
 RestartSec=5
 User={{ airdrop_user }}
 Group={{ service_group }}
-AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
-CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN
+SupplementaryGroups={{ service_group }}
+AmbientCapabilities=CAP_NET_RAW CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_RAW CAP_NET_BIND_SERVICE
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectHome=read-only
 ProtectSystem=strict
-ReadWritePaths={{ events_root }} {{ data_root }}/inbox {{ state_dir }} {{ log_dir }}
+ReadWritePaths=-{{ events_root }} -{{ data_root }}/inbox -{{ state_dir }} -{{ log_dir }} /var/lib/eventhub-airdrop
 UMask=0027
 Environment=PYTHONUNBUFFERED=1
 Environment=EVENTHUB_CONFIG={{ config_path }}
+Environment=HOME=/var/lib/eventhub-airdrop
 
 [Install]
 WantedBy=multi-user.target

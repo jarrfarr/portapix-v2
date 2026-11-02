@@ -425,15 +425,22 @@ class AirdropConfig(StrictModel):
     enabled: bool = True
     device_name: str = "EventHub"
     interface: str = "auto"
+    awdl_interface: str = "awdl0"
+    receive_port: int = Field(default=8771, ge=1, le=65535)
     receive_mode: Literal["everyone", "contacts"] = "everyone"
     target_follows_active_event: bool = True
     target_dir: Path | None = Path("/srv/eventhub/inbox")
-    owl_dir: Path = Path("/opt/omdrop-owl")
-    owl_repo: str = "https://github.com/t4t5/omdrop-owl"
-    owl_ref: str = "main"
+    owl_dir: Path = Path("/opt/owly")
+    owl_binary: Path = Path("/usr/bin/owly")
+    owl_daemon: Path = Path("/usr/lib/owly/owlyd")
+    owl_repo: str = "https://github.com/t4t5/owly"
+    owl_ref: str = "v0.4.2"
     owl_user: str = "eventhub-airdrop"
+    owl_min_rust: str = "1.88"
     build_on_install: bool = True
+    allow_untested_hardware: bool = False
     require_monitor_mode: bool = True
+    reconnect_after: bool = True
     allowed_extensions: list[str] = Field(
         default_factory=lambda: [
             ".jpg",
@@ -460,14 +467,14 @@ class AirdropConfig(StrictModel):
     )
     max_file_gb: int = Field(default=64, ge=1)
 
-    @field_validator("target_dir", "owl_dir")
+    @field_validator("target_dir", "owl_dir", "owl_binary", "owl_daemon")
     @classmethod
     def _absolute(cls, value: Path | None) -> Path | None:
         if value is not None:
             return _check_absolute(value, "airdrop path")
         return value
 
-    @field_validator("interface")
+    @field_validator("interface", "awdl_interface")
     @classmethod
     def _iface(cls, value: str) -> str:
         if value not in {"auto", "none"} and not _IFACE_RE.match(value):

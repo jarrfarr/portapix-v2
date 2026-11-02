@@ -46,6 +46,11 @@ table inet {{ table }} {
         # The WAN side may only answer our own outbound traffic and DHCP.
         iifname "{{ wan }}" udp sport 67 udp dport 68 accept
 {% endif %}
+
+{% if airdrop_enabled %}
+        # AirDrop receiver (owly) on the AWDL interface
+        iifname "{{ awdl_interface }}" tcp dport {{ airdrop_port }} accept
+{% endif %}
     }
 
     chain forward {

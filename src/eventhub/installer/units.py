@@ -20,7 +20,7 @@ UNIT_TEMPLATES: dict[str, tuple[str, ...]] = {
     "helper": ("eventhub-helper.service.j2",),
     "dashboard": ("eventhub-dashboard.service.j2",),
     "fileserver_copyparty": ("eventhub-copyparty.service.j2",),
-    "airdrop": ("eventhub-airdrop.service.j2",),
+    "airdrop": ("eventhub-radio.service.j2", "eventhub-airdrop.service.j2"),
     "network": ("eventhub-network.service.j2",),
     "hotspot": ("eventhub-hostapd.service.j2", "eventhub-dnsmasq.service.j2"),
     "system": ("eventhub-metrics.service.j2",),
@@ -30,6 +30,7 @@ UNIT_TEMPLATES: dict[str, tuple[str, ...]] = {
 EXTERNAL_UNITS: dict[str, tuple[str, ...]] = {
     "fileserver_smb": ("smbd.service",),
     "discovery": ("avahi-daemon.service",),
+    "airdrop": ("owlyd.service",),
 }
 
 

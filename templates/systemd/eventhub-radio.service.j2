@@ -1,0 +1,21 @@
+[Unit]
+Description=EventHub AirDrop radio (owlyd)
+After=network.target owlyd.service
+Wants=owlyd.service
+ConditionPathExists={{ airdrop.owl_binary }}
+
+[Service]
+Type=simple
+ExecStart={{ airdrop.owl_binary }} radio up
+Restart=on-failure
+RestartSec=10
+User=root
+Group=root
+NoNewPrivileges=yes
+ProtectHome=read-only
+ProtectSystem=strict
+ReadWritePaths=/run /var/lib/eventhub /etc/owly
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
