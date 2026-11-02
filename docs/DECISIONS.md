@@ -118,5 +118,30 @@ and `TimeoutSec`.  This gives auto-mount on boot, safe removal without boot
 failure, and lets the apply engine snapshot/roll back the file.  `/etc/fstab`
 is user-owned and too dangerous to rewrite wholesale.
 
+## 2026-11-02 — Copyparty passwords are hashed, not plaintext
+
+copyparty supports argon2 password verification with `--ah-alg argon2` and a
+fixed salt.  EventHub stores a copyparty-compatible `+hash` per user, generated
+with `fileserver_copyparty.password_salt`, so the generated config never
+contains plaintext passwords.  If the salt is lost, users must reset their
+passwords; this is the same tradeoff copyparty documents.
+
+## 2026-11-02 — SMB and copyparty permissions cannot be identical
+
+Samba can grant read or read-write per share, but not "upload without delete"
+inside a share.  EventHub therefore gives shooters a write share only for the
+event's `ingest` folder and keeps them out of the event root share.  copyparty
+can express upload-only with `w`, so it enforces the stricter role inside the
+event volume.  This asymmetry is documented in `fileserver_smb/README.md`
+instead of claiming identical semantics.
+
+## 2026-11-02 — User creation does not silently rewrite config
+
+Users/groups/access are dynamic state in SQLite.  Creating or deleting a user
+updates the SMB passdb immediately and returns; the caller (helper/CLI/TUI)
+then re-renders the file-server configs via the registry.  This keeps the
+privilege boundary and the apply/rollback path in one place.
+
+
 
 

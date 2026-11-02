@@ -1012,6 +1012,398 @@ def events_path(ctx: typer.Context, slug: str = typer.Argument("")) -> None:
 
 
 # ---------------------------------------------------------------------------
+# users / fileservers
+# ---------------------------------------------------------------------------
+
+
+users_app = typer.Typer(help="Create users, guests and groups; manage roles.")
+app.add_typer(users_app, name="users")
+
+smb_app = typer.Typer(help="Inspect SMB shares and account sync.")
+app.add_typer(smb_app, name="smb")
+
+copyparty_app = typer.Typer(help="Inspect copyparty volumes and status.")
+app.add_typer(copyparty_app, name="copyparty")
+
+
+def _resolve_user(service: Any, identifier: str) -> Any:
+    if identifier.isdigit():
+        return service.get_user(int(identifier))
+    user = service.get_by_username(identifier)
+    if user is None:
+        raise EventHubError(f"user not found: {identifier}")
+    return user
+
+
+def _apply_fileservers(runtime: Runtime) -> None:
+    names = [
+        name
+        for name in ("fileserver_copyparty", "fileserver_smb")
+        if ServiceRegistry(runtime).is_available(name)
+    ]
+    if names:
+        result = ServiceRegistry(runtime).apply(names=names)
+        if not result.ok:
+            raise EventHubError(result.message)
+
+
+@users_app.command("list")
+def users_list(ctx: typer.Context, json_output: bool = typer.Option(False, "--json")) -> None:
+    """List users, roles and expiry."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.users.service import UsersService
+
+        users = UsersService(state.runtime()).list_users()
+        if json_output:
+            console.print_json(json.dumps([user.as_dict() for user in users], indent=2))
+            return
+        table = Table(title="Users")
+        table.add_column("Username")
+        table.add_column("Role")
+        table.add_column("Enabled")
+        table.add_column("Guest")
+        table.add_column("Expires")
+        table.add_column("Last login")
+        for user in users:
+            table.add_row(
+                user.username,
+                user.role,
+                "yes" if user.enabled else "no",
+                "yes" if user.is_guest else "no",
+                user.expires_at or "-",
+                user.last_login_at or "-",
+            )
+        console.print(table)
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@users_app.command("create")
+def users_create(
+    ctx: typer.Context,
+    username: str = typer.Argument(...),
+    role: str = typer.Option("viewer", "--role"),
+    password: str = typer.Option("", "--password", help="Leave empty to prompt."),
+    display_name: str = typer.Option("", "--display-name"),
+    no_change: bool = typer.Option(False, "--no-change", help="Do not force a password change."),
+) -> None:
+    """Create a user and sync SMB/copyparty credentials."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.users.service import UsersService
+
+        runtime = state.runtime()
+        if not runtime.privileged:
+            _handle_error(EventHubError("creating users requires root"))
+        if not password:
+            password = typer.prompt("Password", hide_input=True, confirmation_prompt=True)
+        service = UsersService(runtime)
+        user = service.create_user(
+            username,
+            password,
+            role=role,
+            display_name=display_name,
+            must_change_password=not no_change,
+        )
+        _apply_fileservers(runtime)
+        console.print(f"[green]created user {user.username} ({user.role})[/green]")
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@users_app.command("passwd")
+def users_passwd(
+    ctx: typer.Context,
+    username: str = typer.Argument(...),
+    password: str = typer.Option("", "--password"),
+    generate: bool = typer.Option(False, "--generate"),
+) -> None:
+    """Set a user's password and sync SMB."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.core.config import generate_wifi_password
+        from eventhub.users.service import UsersService
+
+        runtime = state.runtime()
+        if not runtime.privileged:
+            _handle_error(EventHubError("changing passwords requires root"))
+        service = UsersService(runtime)
+        user = _resolve_user(service, username)
+        if generate:
+            password = generate_wifi_password()
+        if not password:
+            password = typer.prompt("New password", hide_input=True, confirmation_prompt=True)
+        result = service.set_password(user.id, password)
+        if not result.ok:
+            _handle_error(EventHubError(result.message))
+        _apply_fileservers(runtime)
+        console.print(f"[green]password updated for {user.username}[/green]")
+        if generate:
+            console.print(f"Password: [bold]{password}[/bold]")
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@users_app.command("delete")
+def users_delete(ctx: typer.Context, username: str = typer.Argument(...)) -> None:
+    """Delete a user, their sessions and protocol credentials."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.users.service import UsersService
+
+        runtime = state.runtime()
+        if not runtime.privileged:
+            _handle_error(EventHubError("deleting users requires root"))
+        service = UsersService(runtime)
+        user = _resolve_user(service, username)
+        result = service.delete_user(user.id)
+        if not result.ok:
+            _handle_error(EventHubError(result.message))
+        _apply_fileservers(runtime)
+        console.print(f"[green]{result.message}[/green]")
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@users_app.command("role")
+def users_role(
+    ctx: typer.Context,
+    username: str = typer.Argument(...),
+    role: str = typer.Argument(...),
+) -> None:
+    """Change a user's role (admin, editor, shooter, viewer)."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.users.service import UsersService
+
+        runtime = state.runtime()
+        service = UsersService(runtime)
+        user = _resolve_user(service, username)
+        service.update_user(user.id, role=role)
+        _apply_fileservers(runtime)
+        console.print(f"[green]{user.username} is now {role}[/green]")
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@users_app.command("guest")
+def users_guest(
+    ctx: typer.Context,
+    hours: int = typer.Option(24, "--hours"),
+    role: str = typer.Option("shooter", "--role"),
+) -> None:
+    """Create a temporary guest account and print its one-time password."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.users.service import UsersService
+
+        runtime = state.runtime()
+        if not runtime.privileged:
+            _handle_error(EventHubError("creating guests requires root"))
+        user, password = UsersService(runtime).create_guest_account(
+            hours=hours, role=role
+        )
+        _apply_fileservers(runtime)
+        console.print(
+            f"[green]guest {user.username} created[/green]\n"
+            f"Password: [bold]{password}[/bold]\nExpires: {user.expires_at}"
+        )
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@users_app.command("link")
+def users_link(
+    ctx: typer.Context,
+    event_id: int = typer.Option(0, "--event-id", help="Restrict to this event id."),
+    permission: str = typer.Option("upload", "--permission"),
+    hours: int = typer.Option(24, "--hours"),
+    max_uses: int = typer.Option(0, "--max-uses"),
+    label: str = typer.Option("", "--label"),
+) -> None:
+    """Create an expiring guest upload/read link (token shown once)."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.users.service import UsersService
+
+        runtime = state.runtime()
+        if not runtime.privileged:
+            _handle_error(EventHubError("creating links requires root"))
+        link = UsersService(runtime).create_guest_link(
+            event_id=event_id or None,
+            permission=permission,
+            hours=hours,
+            max_uses=max_uses or None,
+            label=label,
+        )
+        console.print(
+            f"[green]link token:[/green] [bold]{link.token}[/bold]\n"
+            f"Expires: {link.expires_at}"
+        )
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@users_app.command("sync")
+def users_sync(ctx: typer.Context) -> None:
+    """Ensure SMB system users exist and re-render file server config."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.users.service import UsersService
+
+        runtime = state.runtime()
+        if not runtime.privileged:
+            _handle_error(EventHubError("syncing users requires root"))
+        result = UsersService(runtime).sync_backends()
+        _apply_fileservers(runtime)
+        console.print(json.dumps(result, indent=2))
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@users_app.command("groups")
+def users_groups(ctx: typer.Context) -> None:
+    """List groups and their members."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.users.service import UsersService
+
+        groups = UsersService(state.runtime()).list_groups()
+        table = Table(title="Groups")
+        table.add_column("Name")
+        table.add_column("Members")
+        for group in groups:
+            table.add_row(group.name, ", ".join(group.members))
+        console.print(table)
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@smb_app.command("status")
+def smb_status(ctx: typer.Context, json_output: bool = typer.Option(False, "--json")) -> None:
+    """Show SMB shares and health."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.fileserver_smb.service import SmbService
+
+        service = SmbService(state.runtime())
+        payload = {
+            "shares": service.shares_list(),
+            "status": service.status().as_dict(),
+        }
+        if json_output:
+            console.print_json(json.dumps(payload, indent=2))
+            return
+        table = Table(title="SMB shares")
+        table.add_column("Name")
+        table.add_column("Path")
+        table.add_column("Readers")
+        table.add_column("Writers")
+        for share in payload["shares"]:
+            table.add_row(
+                share["name"],
+                share["path"],
+                ", ".join(share["valid_users"]),
+                ", ".join(share["write_users"]) or "-",
+            )
+        console.print(table)
+        console.print(f"health: {service.health_check().message}")
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@smb_app.command("sync")
+def smb_sync(ctx: typer.Context) -> None:
+    """Ensure every enabled user has an SMB system account (passwords unchanged)."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.fileserver_smb.service import SmbService
+        from eventhub.users.service import UsersService
+
+        runtime = state.runtime()
+        if not runtime.privileged:
+            _handle_error(EventHubError("syncing SMB users requires root"))
+        result = SmbService(runtime).ensure_users(UsersService(runtime).list_users())
+        if not result.ok:
+            _handle_error(EventHubError(result.message))
+        console.print(f"[green]{result.message}[/green]")
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+@copyparty_app.command("status")
+def copyparty_status(
+    ctx: typer.Context, json_output: bool = typer.Option(False, "--json")
+) -> None:
+    """Show copyparty health and volumes."""
+
+    state = _state(ctx)
+    try:
+        from eventhub.fileserver_copyparty.service import CopypartyService
+
+        service = CopypartyService(state.runtime())
+        payload = {
+            "volumes": service.volumes_list(),
+            "status": service.status().as_dict(),
+        }
+        if json_output:
+            console.print_json(json.dumps(payload, indent=2))
+            return
+        console.print(f"health: {service.health_check().message}")
+        table = Table(title="copyparty volumes")
+        table.add_column("Event")
+        table.add_column("Path")
+        table.add_column("Archived")
+        table.add_column("Access")
+        for volume in payload["volumes"]:
+            table.add_row(
+                volume["slug"],
+                volume["path"],
+                "yes" if volume["archived"] else "no",
+                json.dumps(volume["accs"]),
+            )
+        console.print(table)
+    except EventHubError as exc:
+        _handle_error(exc)
+    finally:
+        state.close()
+
+
+# ---------------------------------------------------------------------------
 # placeholders wired up in later phases
 # ---------------------------------------------------------------------------
 

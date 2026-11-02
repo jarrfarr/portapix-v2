@@ -14,12 +14,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
-from argon2 import PasswordHasher
-
 from eventhub.core.config import AppConfig, config_yaml, merge_config
 from eventhub.core.context import Runtime
 from eventhub.core.db import utcnow
 from eventhub.core.logging import log_marker
+from eventhub.core.passwords import copyparty_hash, hash_password
 from eventhub.core.types import RenderedFile
 from eventhub.installer.distro import (
     Distro,
@@ -257,6 +256,7 @@ class CreateServiceAccountsStep(InstallStep):
             return StepResult(self.id, "ok", "would create service accounts")
         try:
             self._group(ctx, install.service_group)
+            self._group(ctx, ctx.config.users.default_group)
             for name, group in users:
                 self._user(ctx, name, group)
         except (RuntimeError, OSError) as exc:
@@ -365,20 +365,29 @@ class FirstBootAdminStep(InstallStep):
 
         password = ctx.admin_password or generate_secret(20)
         ctx.admin_password = password
-        hasher = PasswordHasher()
-        password_hash = hasher.hash(password)
+        password_hash = hash_password(password)
+        cp_salt = ctx.config.fileserver_copyparty.password_salt.get_secret_value()
+        cp_hash = copyparty_hash(password, cp_salt)
         now = utcnow()
         username = ctx.admin_username
         if ctx.dry_run:
             return StepResult(self.id, "ok", "would create administrator account")
         db.execute(
             """
-            INSERT INTO users(username, display_name, password_hash, role, enabled,
-                              must_change_password, created_at, updated_at)
-            VALUES (?, ?, ?, 'admin', 1, 1, ?, ?)
+            INSERT INTO users(username, display_name, password_hash, copyparty_hash,
+                              role, enabled, must_change_password, created_at, updated_at)
+            VALUES (?, ?, ?, ?, 'admin', 1, 1, ?, ?)
             """,
-            (username, "Administrator", password_hash, now, now),
+            (username, "Administrator", password_hash, cp_hash, now, now),
         )
+        try:
+            registry = ServiceRegistry(ctx.runtime)
+            if registry.is_available("fileserver_smb") and ctx.config.fileserver_smb.enabled:
+                synced = registry.get("fileserver_smb").sync_user(username, password)
+                if not synced.ok:
+                    ctx.log("warn", f"SMB admin sync failed: {synced.message}")
+        except Exception as exc:
+            ctx.log("warn", f"SMB admin sync failed: {exc}")
         content = (
             "EventHub first-boot administrator\n"
             "=================================\n"

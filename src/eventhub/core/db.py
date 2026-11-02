@@ -18,7 +18,7 @@ from typing import Any, cast
 from eventhub.core.errors import ConfigError
 from eventhub.core.types import PermissionLevel, UserRole
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _MIGRATIONS: dict[int, tuple[str, ...]] = {
     1: (
@@ -137,6 +137,9 @@ _MIGRATIONS: dict[int, tuple[str, ...]] = {
         "CREATE INDEX IF NOT EXISTS idx_access_event ON access(event_id)",
         "CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)",
         "CREATE INDEX IF NOT EXISTS idx_audit_ts ON audit_log(ts)",
+    ),
+    2: (
+        "ALTER TABLE users ADD COLUMN copyparty_hash TEXT NOT NULL DEFAULT ''",
     ),
 }
 

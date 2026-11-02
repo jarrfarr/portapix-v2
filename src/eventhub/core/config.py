@@ -366,6 +366,7 @@ class CopypartyConfig(StrictModel):
     base_url: str = "/"
     config_path: Path = Path("/etc/eventhub/copyparty.conf")
     home_dir: Path = Path("/var/lib/eventhub/copyparty")
+    password_salt: SecretStr = Field(default_factory=lambda: SecretStr(generate_secret(24)))
     thumbnails: Literal["auto", "pyvips", "pil", "off"] = "auto"
     thumbnail_age_days: int = Field(default=30, ge=1, le=3650)
     max_upload_mb: int = Field(default=0, ge=0)
@@ -380,6 +381,13 @@ class CopypartyConfig(StrictModel):
     def _absolute(cls, value: Path) -> Path:
         return _check_absolute(value, "copyparty path")
 
+    @field_validator("password_salt")
+    @classmethod
+    def _salt(cls, value: SecretStr) -> SecretStr:
+        if len(value.get_secret_value()) < 16:
+            raise ValueError("copyparty.password_salt must be at least 16 characters")
+        return value
+
     @field_validator("extra_args")
     @classmethod
     def _no_config_override(cls, values: list[str]) -> list[str]:
@@ -393,7 +401,7 @@ class SmbConfig(StrictModel):
     enabled: bool = True
     workgroup: str = "EVENTHUB"
     server_string: str = "EventHub"
-    config_path: Path = Path("/etc/eventhub/smb.conf")
+    config_path: Path = Path("/etc/samba/smb.conf")
     min_protocol: Literal["SMB2", "SMB2_02", "SMB2_10", "SMB3", "SMB3_00"] = "SMB2"
     max_protocol: Literal["SMB3", "SMB3_00", "SMB3_02", "SMB3_11"] = "SMB3_11"
     socket_options: str = "TCP_NODELAY IPTOS_LOWDELAY SO_RCVBUF=131072 SO_SNDBUF=131072"
